@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="Business Review Analyzer", layout="wide")
 
 st.title("📈 Exploiting business in review")
-st.markdown("## Capstone Project - Text Analytics & Business Intelligence")
+st.markdown("shalini,saravanan,shanmathi,shanmugarajan")
 
 # Sidebar with uploader
 with st.sidebar:
