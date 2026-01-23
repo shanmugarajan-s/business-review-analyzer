@@ -22,7 +22,7 @@ if 'use_sample' in st.session_state and st.session_state.use_sample:
     df = pd.DataFrame({
         'Review': ['Excellent product!', 'Not good quality', 'Average experience'],
         'Rating': [5, 2, 3],
-        'Brand': ['Brand A', 'Brand B', 'Brand A'],
+        'Brand': ['Samsung', 'Xiaomi', 'Apple'],
         'Date': ['2024-01-15', '2024-01-16', '2024-01-17']
     })
     
@@ -83,4 +83,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.caption("🎓 Capstone Project: Text Analytics | Exploiting Business Intelligence from Reviews")
+st.caption("Dabuict")
