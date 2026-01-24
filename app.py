@@ -2,522 +2,569 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
-# ==================== PAGE CONFIG ====================
-st.set_page_config(
-    page_title="Business Exploitation Engine",
-    page_icon="⚔️",
-    layout="wide"
-)
-
-# ==================== CUSTOM CSS ====================
+# ==================== GAMIFIED THEME CSS ====================
 st.markdown("""
 <style>
-    .main-title {
-        font-size: 2.8rem;
-        color: #DC2626;
-        text-align: center;
-        margin-bottom: 0.5rem;
-        font-weight: bold;
-    }
-    .sub-title {
-        font-size: 1.4rem;
-        color: #7F1D1D;
-        text-align: center;
-        margin-bottom: 2rem;
-        font-style: italic;
-    }
-    .attack-card {
-        background: linear-gradient(135deg, #DC2626 0%, #7F1D1D 100%);
+    /* GAME THEME */
+    .game-container {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         color: white;
-        padding: 1.2rem;
+        min-height: 100vh;
+        padding: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    /* GAME HEADER */
+    .game-header {
+        text-align: center;
+        padding: 20px;
+        background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%);
         border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+        margin-bottom: 30px;
+        border: 3px solid #00d4ff;
+        box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
     }
-    .weakness-highlight {
-        background-color: #FEE2E2;
-        border-left: 5px solid #DC2626;
-        padding: 1rem;
-        border-radius: 5px;
-        margin: 0.5rem 0;
+    
+    /* LEVEL CARDS */
+    .level-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        cursor: pointer;
+        height: 100%;
     }
-    .strategy-box {
-        background-color: #FEF3C7;
-        border: 2px solid #D97706;
-        padding: 1.2rem;
-        border-radius: 10px;
-        margin: 1rem 0;
+    
+    .level-card:hover {
+        transform: translateY(-10px);
+        border-color: #00d4ff;
+        box-shadow: 0 10px 20px rgba(0, 212, 255, 0.2);
     }
-    .exploit-tag {
-        background-color: #DC2626;
+    
+    .level-badge {
+        background: linear-gradient(45deg, #ff0080, #ff8c00);
         color: white;
-        padding: 0.3rem 0.8rem;
+        padding: 5px 15px;
         border-radius: 20px;
-        font-size: 0.9rem;
+        font-weight: bold;
         display: inline-block;
-        margin: 0.2rem;
+        margin-bottom: 10px;
+        font-size: 0.9em;
+    }
+    
+    /* XP & PROGRESS */
+    .xp-badge {
+        background: gold;
+        color: black;
+        padding: 3px 10px;
+        border-radius: 10px;
+        font-weight: bold;
+        display: inline-block;
+    }
+    
+    .progress-bar {
+        height: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+        margin: 10px 0;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00b09b, #96c93d);
+        border-radius: 5px;
+        transition: width 0.5s ease;
+    }
+    
+    /* BATTLE STATS */
+    .stat-card {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #00d4ff;
+        margin: 10px 0;
+    }
+    
+    /* ACHIEVEMENTS */
+    .achievement {
+        background: rgba(255, 215, 0, 0.1);
+        border: 2px solid gold;
+        padding: 10px;
+        border-radius: 10px;
+        margin: 5px 0;
+    }
+    
+    /* BUTTONS */
+    .game-button {
+        background: linear-gradient(45deg, #6a11cb, #2575fc);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+        display: block;
+        width: 100%;
+        margin: 10px 0;
+    }
+    
+    .game-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(106, 17, 203, 0.4);
+    }
+    
+    /* BATTLE ARENA */
+    .battle-arena {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #ff0080;
+        margin: 20px 0;
+    }
+    
+    /* ANIMATIONS */
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .pulse {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+    
+    .float {
+        animation: float 3s infinite;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== SIDEBAR ====================
-with st.sidebar:
-    st.header("⚔️ Target Selection")
-    
-    # Initialize session state
-    if 'target_brand' not in st.session_state:
-        st.session_state.target_brand = "Samsung"
-    if 'attacker_brand' not in st.session_state:
-        st.session_state.attacker_brand = "Your Brand"
-    if 'industry' not in st.session_state:
-        st.session_state.industry = "Electronics"
-    
-    # TARGET brand (to attack)
-    st.subheader("🎯 Target to Attack:")
-    target_input = st.text_input(
-        "Enter competitor brand to analyze:",
-        value=st.session_state.target_brand,
-        key="target_input"
-    )
-    
-    if target_input != st.session_state.target_brand:
-        st.session_state.target_brand = target_input
-    
-    # ATTACKER brand (your brand)
-    st.subheader("🛡️ Your Brand:")
-    attacker_input = st.text_input(
-        "Enter your brand name:",
-        value=st.session_state.attacker_brand,
-        key="attacker_input"
-    )
-    
-    if attacker_input != st.session_state.attacker_brand:
-        st.session_state.attacker_brand = attacker_input
-    
-    # Industry
-    industry = st.selectbox(
-        "Industry:",
-        ["Electronics", "Food & Beverage", "Automotive", "Fashion", 
-         "Retail", "Technology", "Other"],
-        index=0,
-        key="industry_key"
-    )
-    
-    if industry != st.session_state.industry:
-        st.session_state.industry = industry
-    
-    # Data source (simplified)
-    data_source = st.radio(
-        "Data Source:",
-        ["🌐 Generate Sample Data", "📁 Upload Your Data"]
-    )
-    
-    uploaded_file = None
-    if data_source == "📁 Upload Your Data":
-        uploaded_file = st.file_uploader("Upload competitor reviews CSV", type=['csv'])
-    
-    st.markdown("---")
-    
-    # Quick targets
-    st.subheader("Quick Targets:")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📱 Attack Samsung"):
-            st.session_state.target_brand = "Samsung"
-            st.session_state.industry = "Electronics"
-            st.rerun()
-    with col2:
-        if st.button("🍕 Attack Dominos"):
-            st.session_state.target_brand = "Dominos"
-            st.session_state.industry = "Food & Beverage"
-            st.rerun()
-    
-    st.markdown("---")
-    st.caption("⚔️ Capstone: Exploiting Business Intelligence from Reviews")
+# ==================== INITIALIZE GAME STATE ====================
+if 'player_xp' not in st.session_state:
+    st.session_state.player_xp = 0
+if 'player_level' not in st.session_state:
+    st.session_state.player_level = 1
+if 'completed_missions' not in st.session_state:
+    st.session_state.completed_missions = []
+if 'current_battle' not in st.session_state:
+    st.session_state.current_battle = None
 
-# ==================== DATA GENERATION ====================
-def generate_attack_data(target_brand, industry):
-    """Generate data for exploitation analysis"""
-    
-    # Industry-specific weaknesses
-    industry_weaknesses = {
-        "Electronics": [
-            f"{target_brand} battery drains too fast",
-            f"{target_brand} gets hot during gaming",
-            f"{target_brand} software updates are slow",
-            f"{target_brand} customer service is poor",
-            f"{target_brand} price increased but features didn't",
-            f"{target_brand} charger not included in box",
-            f"{target_brand} camera struggles in low light",
-            f"{target_brand} display scratches easily",
-            f"{target_brand} face unlock doesn't work well",
-            f"{target_brand} 5G connectivity issues"
-        ],
-        "Food & Beverage": [
-            f"{target_brand} pizza arrives cold sometimes",
-            f"{target_brand} prices increased recently",
-            f"{target_brand} delivery is often late",
-            f"{target_brand} portion sizes reduced",
-            f"{target_brand} customer support rude",
-            f"{target_brand} app has payment issues",
-            f"{target_brand} food quality inconsistent",
-            f"{target_brand} limited vegetarian options",
-            f"{target_brand} waiting time too long",
-            f"{target_brand} packaging not eco-friendly"
-        ],
-        "Automotive": [
-            f"{target_brand} service center expensive",
-            f"{target_brand} mileage less than advertised",
-            f"{target_brand} waiting period too long",
-            f"{target_brand} infotainment system laggy",
-            f"{target_brand} spare parts costly",
-            f"{target_brand} AC not powerful enough",
-            f"{target_brand} suspension too stiff",
-            f"{target_brand} resale value dropping",
-            f"{target_brand} service appointments delayed",
-            f"{target_brand} warranty claims rejected"
-        ]
-    }
-    
-    # Get weaknesses for industry
-    weaknesses = industry_weaknesses.get(industry, [
-        f"{target_brand} quality has decreased",
-        f"{target_brand} customer service needs improvement",
-        f"{target_brand} prices are too high",
-        f"{target_brand} delivery takes too long"
-    ])
-    
-    # Generate reviews (70% negative for exploitation analysis)
-    reviews = []
-    for i in range(40):
-        is_negative = random.random() < 0.7  # 70% negative for attack analysis
+# ==================== GAME HEADER ====================
+st.markdown("""
+<div class="game-container">
+    <div class="game-header">
+        <h1 style="font-size: 3rem; margin: 0;">🎮 BUSINESS CONQUEST</h1>
+        <p style="font-size: 1.2rem; opacity: 0.9;">Turn Customer Reviews into Victory Points!</p>
         
-        if is_negative:
-            review = random.choice(weaknesses)
-            rating = random.randint(1, 2)
-            sentiment = "Negative"
-        else:
-            # Some positive reviews for balance
-            positive_templates = [
-                f"{target_brand} product works well",
-                f"Happy with {target_brand} service",
-                f"{target_brand} quality is good",
-                f"Would recommend {target_brand}"
-            ]
-            review = random.choice(positive_templates)
-            rating = random.randint(4, 5)
-            sentiment = "Positive"
+        <div style="display: flex; justify-content: center; gap: 30px; margin-top: 20px;">
+            <div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">PLAYER LEVEL</div>
+                <div style="font-size: 2rem; font-weight: bold;">{}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">TOTAL XP</div>
+                <div style="font-size: 2rem; font-weight: bold;">{} XP</div>
+            </div>
+            <div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">MISSIONS</div>
+                <div style="font-size: 2rem; font-weight: bold;">{}/10</div>
+            </div>
+        </div>
         
-        reviews.append({
-            "review": review,
-            "rating": rating,
-            "sentiment": sentiment,
-            "source": random.choice(["Amazon", "Twitter", "Google", "Forum"]),
-            "date": (datetime.now() - timedelta(days=random.randint(0, 90))).strftime("%Y-%m-%d")
-        })
-    
-    return pd.DataFrame(reviews)
+        <div class="progress-bar" style="margin-top: 20px;">
+            <div class="progress-fill" style="width: {}%"></div>
+        </div>
+    </div>
+""".format(
+    st.session_state.player_level,
+    st.session_state.player_xp,
+    len(st.session_state.completed_missions),
+    (st.session_state.player_xp % 1000) / 10
+), unsafe_allow_html=True)
 
-# ==================== EXPLOITATION ANALYSIS ====================
-def find_exploitation_opportunities(df, target_brand, attacker_brand, industry):
-    """Find opportunities to exploit competitor weaknesses"""
-    
-    opportunities = {
-        "critical_weaknesses": [],
-        "marketing_attacks": [],
-        "product_attacks": [],
-        "price_attacks": [],
-        "service_attacks": [],
-        "urgent_actions": []
-    }
-    
-    # Get negative reviews
-    negative_df = df[df['sentiment'] == "Negative"]
-    
-    if len(negative_df) == 0:
-        return opportunities
-    
-    # Analyze complaint patterns
-    all_complaints = ' '.join(negative_df['review'].str.lower())
-    
-    # 1. PRICE EXPLOITATION
-    price_keywords = ['expensive', 'price', 'cost', 'high', 'increased', 'costly']
-    price_complaints = [c for c in price_keywords if c in all_complaints]
-    if price_complaints:
-        opportunities["price_attacks"].append(
-            f"**💰 Price Attack:** {target_brand} seen as expensive"
-        )
-        opportunities["marketing_attacks"].append(
-            f"Run ads: '{attacker_brand} offers same features at 20% lower price than {target_brand}'"
-        )
-        opportunities["urgent_actions"].append(
-            f"Launch price comparison campaign against {target_brand}"
-        )
-    
-    # 2. QUALITY EXPLOITATION
-    quality_keywords = ['quality', 'poor', 'bad', 'decreased', 'scratches', 'issues']
-    quality_complaints = [c for c in quality_keywords if c in all_complaints]
-    if quality_complaints:
-        opportunities["product_attacks"].append(
-            f"**🎯 Quality Attack:** {target_brand} has quality issues"
-        )
-        opportunities["marketing_attacks"].append(
-            f"Showcase your quality control vs {target_brand}'s failures"
-        )
-    
-    # 3. SERVICE EXPLOITATION
-    service_keywords = ['service', 'support', 'rude', 'slow', 'delayed', 'poor']
-    service_complaints = [c for c in service_keywords if c in all_complaints]
-    if service_complaints:
-        opportunities["service_attacks"].append(
-            f"**📞 Service Attack:** {target_brand} service complaints"
-        )
-        opportunities["urgent_actions"].append(
-            f"Target {target_brand} customers with 'Better Service Guarantee'"
-        )
-    
-    # 4. SPECIFIC WEAKNESSES
-    # Find most frequent complaints
-    from collections import Counter
-    words = ' '.join(negative_df['review']).lower().split()
-    common_words = Counter(words).most_common(10)
-    
-    for word, count in common_words:
-        if count >= 3 and len(word) > 3:  # Significant complaints
-            if word not in ['the', 'and', 'this', 'that', 'with', 'from']:
-                opportunities["critical_weaknesses"].append(
-                    f"'{word}' mentioned {count} times in complaints"
-                )
-    
-    return opportunities
+# ==================== MAIN GAME CONTENT ====================
+tab1, tab2, tab3, tab4 = st.tabs(["🎯 MISSIONS", "⚔️ BATTLE", "📊 WAR ROOM", "🏆 ACHIEVEMENTS"])
 
-# ==================== MAIN APP ====================
-def main():
-    # Get session values
-    target_brand = st.session_state.target_brand
-    attacker_brand = st.session_state.attacker_brand
-    industry = st.session_state.industry
+with tab1:
+    # MISSION SELECTION
+    st.markdown("<h2 style='text-align: center;'>🎯 CHOOSE YOUR BATTLE</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; opacity: 0.8;'>Complete missions to earn XP and unlock new strategies</p>", unsafe_allow_html=True)
     
-    # ==================== TITLE ====================
-    st.markdown('<h1 class="main-title">⚔️ BUSINESS EXPLOITATION ENGINE</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-title">Attack Plan: {attacker_brand} → {target_brand}</p>', unsafe_allow_html=True)
+    # Mission Cards
+    missions = [
+        {
+            "id": 1,
+            "title": "MOBILE WARS",
+            "description": "Conquer the smartphone market",
+            "target": "Samsung",
+            "enemy": "Apple",
+            "xp": 100,
+            "difficulty": "Beginner",
+            "icon": "📱",
+            "color": "#6a11cb"
+        },
+        {
+            "id": 2,
+            "title": "AUTO BATTLE",
+            "description": "Win the car industry race",
+            "target": "Tata Motors",
+            "enemy": "Maruti Suzuki",
+            "xp": 150,
+            "difficulty": "Intermediate",
+            "icon": "🚗",
+            "color": "#2575fc"
+        },
+        {
+            "id": 3,
+            "title": "FOOD FIGHT",
+            "description": "Dominate the food delivery space",
+            "target": "Dominos",
+            "enemy": "Pizza Hut",
+            "xp": 200,
+            "difficulty": "Advanced",
+            "icon": "🍕",
+            "color": "#ff0080"
+        },
+        {
+            "id": 4,
+            "title": "TECH SHOWDOWN",
+            "description": "Battle in the laptop market",
+            "target": "Dell",
+            "enemy": "HP",
+            "xp": 250,
+            "difficulty": "Expert",
+            "icon": "💻",
+            "color": "#00b09b"
+        }
+    ]
     
-    # ==================== BATTLE DISPLAY ====================
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col1:
-        st.markdown(f'### 🛡️ {attacker_brand}')
-        st.info("Your Brand")
-    
-    with col2:
-        st.markdown("### ⚔️ VS")
-        st.markdown('<div style="text-align: center; font-size: 2rem;">🎯</div>', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f'### 🎯 {target_brand}')
-        st.warning("Target Competitor")
-    
-    st.markdown("---")
-    
-    # ==================== ATTACK BUTTON ====================
-    attack_clicked = st.button(
-        f"⚔️ GENERATE ATTACK PLAN AGAINST {target_brand.upper()}",
-        type="primary",
-        use_container_width=True,
-        key="attack_button"
-    )
-    
-    if attack_clicked:
-        # Generate attack data
-        with st.spinner(f"Analyzing {target_brand} weaknesses for exploitation..."):
-            df = generate_attack_data(target_brand, industry)
+    # Display mission cards in 2x2 grid
+    cols = st.columns(2)
+    for idx, mission in enumerate(missions):
+        with cols[idx % 2]:
+            completed = mission["id"] in st.session_state.completed_missions
             
-            # Find exploitation opportunities
-            opportunities = find_exploitation_opportunities(df, target_brand, attacker_brand, industry)
+            st.markdown("""
+            <div class="level-card" style="border-color: {};">
+                <div class="level-badge" style="background: {};">{} • {} XP</div>
+                <h3 style="margin: 10px 0;">{} {}</h3>
+                <p style="opacity: 0.8; font-size: 0.9em;">{}</p>
+                <div style="margin: 15px 0;">
+                    <div style="font-size: 0.8em; opacity: 0.7;">TARGET: <b>{}</b></div>
+                    <div style="font-size: 0.8em; opacity: 0.7;">ENEMY: <b>{}</b></div>
+                </div>
+                <div style="margin: 15px 0;">
+                    <div style="font-size: 0.8em; background: rgba(255,255,255,0.1); padding: 5px; border-radius: 5px; display: inline-block;">
+                        Difficulty: {}
+                    </div>
+                </div>
+                {}
+            </div>
+            """.format(
+                mission["color"],
+                mission["color"],
+                mission["icon"],
+                mission["xp"],
+                mission["icon"],
+                mission["title"],
+                mission["description"],
+                mission["target"],
+                mission["enemy"],
+                mission["difficulty"],
+                "✅ COMPLETED" if completed else f"""<button class="game-button" onclick="startMission({mission['id']})">LAUNCH MISSION</button>"""
+            ), unsafe_allow_html=True)
+    
+    # Custom Mission
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>🎮 CREATE CUSTOM MISSION</h3>", unsafe_allow_html=True)
+    
+    custom_col1, custom_col2 = st.columns(2)
+    with custom_col1:
+        custom_target = st.text_input("Your Brand:", placeholder="Enter your brand name")
+    with custom_col2:
+        custom_enemy = st.text_input("Enemy Brand:", placeholder="Enter competitor brand")
+    
+    if st.button("🚀 CREATE CUSTOM BATTLE", type="primary", use_container_width=True):
+        if custom_target and custom_enemy:
+            st.session_state.current_battle = {
+                "target": custom_target,
+                "enemy": custom_enemy,
+                "is_custom": True
+            }
+            st.success(f"Battle created: {custom_target} vs {custom_enemy}!")
+            st.rerun()
+
+with tab2:
+    # BATTLE ARENA
+    if st.session_state.current_battle:
+        battle = st.session_state.current_battle
         
-        st.success(f"✅ Found {len(df[df['sentiment']=='Negative'])} weaknesses in {target_brand}")
+        st.markdown("""
+        <div class="battle-arena">
+            <h2 style='text-align: center;'>⚔️ BATTLE IN PROGRESS</h2>
+            <div style='text-align: center; font-size: 1.5rem; margin: 20px 0;'>
+                <span style='color: #00d4ff;'>{}</span> 
+                <span style='margin: 0 20px;'>VS</span>
+                <span style='color: #ff0080;'>{}</span>
+            </div>
+        </div>
+        """.format(battle["target"], battle["enemy"]), unsafe_allow_html=True)
         
-        # ==================== WEAKNESS DASHBOARD ====================
-        st.markdown("## 🔍 Target Weakness Analysis")
-        
-        # Metrics
-        col1, col2, col3 = st.columns(3)
-        negative_count = len(df[df['sentiment'] == "Negative"])
+        # Battle Analysis
+        col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown('<div class="attack-card">', unsafe_allow_html=True)
-            st.metric("Weaknesses Found", negative_count)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center;'>🎯 YOUR FORCES</h3>", unsafe_allow_html=True)
+            
+            # Simulated battle stats
+            stats = {
+                "Customer Satisfaction": random.randint(70, 90),
+                "Price Advantage": random.randint(60, 85),
+                "Feature Strength": random.randint(65, 95),
+                "Service Quality": random.randint(50, 80)
+            }
+            
+            for stat, value in stats.items():
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>{stat}</span>
+                        <span style="color: #00d4ff; font-weight: bold;">{value}%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {value}%"></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
         
         with col2:
-            st.markdown('<div class="attack-card">', unsafe_allow_html=True)
-            weakness_percent = (negative_count / len(df)) * 100
-            st.metric("Exploitation Potential", f"{weakness_percent:.0f}%")
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center;'>⚠️ ENEMY WEAKNESSES</h3>", unsafe_allow_html=True)
+            
+            weaknesses = [
+                f"{battle['enemy']} has 35% battery complaints",
+                f"Price too high - 42% negative mentions",
+                f"Slow customer service response",
+                f"Limited features compared to competitors"
+            ]
+            
+            for weakness in weaknesses:
+                st.markdown(f"""
+                <div class="stat-card" style="border-color: #ff0080;">
+                    <div style="color: #ff0080;">🔍 {weakness}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Battle Controls
+        st.markdown("<br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🎯 LAUNCH ATTACK", type="primary", use_container_width=True):
+                # Simulate battle outcome
+                win_chance = random.randint(60, 90)
+                if win_chance > 70:
+                    st.session_state.player_xp += 100
+                    if not battle.get("is_custom", False):
+                        st.session_state.completed_missions.append(battle.get("mission_id", 0))
+                    st.success(f"✅ VICTORY! +100 XP (Win chance: {win_chance}%)")
+                else:
+                    st.session_state.player_xp += 30
+                    st.warning(f"⚠️ PARTIAL VICTORY! +30 XP (Win chance: {win_chance}%)")
+                
+                if st.session_state.player_xp >= st.session_state.player_level * 1000:
+                    st.session_state.player_level += 1
+                    st.balloons()
+                
+                st.session_state.current_battle = None
+                st.rerun()
+        
+        with col2:
+            if st.button("🔄 RETREAT & ANALYZE", use_container_width=True):
+                st.info("Retreating to gather more intelligence...")
+                st.session_state.player_xp += 20
+                st.session_state.current_battle = None
+                st.rerun()
         
         with col3:
-            st.markdown('<div class="attack-card">', unsafe_allow_html=True)
-            st.metric("Avg Target Rating", f"{df['rating'].mean():.1f}/5")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # ==================== EXPLOITATION STRATEGIES ====================
-        st.markdown("## 🎯 Exploitation Strategies")
-        
-        # Critical Weaknesses
-        if opportunities["critical_weaknesses"]:
-            st.markdown("### ⚠️ Critical Weaknesses to Exploit")
-            for weakness in opportunities["critical_weaknesses"][:5]:
-                st.markdown(f'<div class="weakness-highlight">{weakness}</div>', unsafe_allow_html=True)
-        
-        # Marketing Attacks
-        if opportunities["marketing_attacks"]:
-            st.markdown("### 📢 Marketing Attack Campaigns")
-            for attack in opportunities["marketing_attacks"]:
-                st.markdown(f'<div class="strategy-box">{attack}</div>', unsafe_allow_html=True)
-        
-        # Price Attacks
-        if opportunities["price_attacks"]:
-            st.markdown("### 💰 Price-Based Attacks")
-            for attack in opportunities["price_attacks"]:
-                st.write(f"• {attack}")
-        
-        # Product Attacks  
-        if opportunities["product_attacks"]:
-            st.markdown("### 🎯 Product-Based Attacks")
-            for attack in opportunities["product_attacks"]:
-                st.write(f"• {attack}")
-        
-        # ==================== 30-DAY ATTACK PLAN ====================
-        st.markdown("## 📅 30-Day Attack Implementation Plan")
-        
-        attack_plan = [
-            f"**Week 1:** Social media blitz highlighting {target_brand}'s top 3 weaknesses",
-            f"**Week 2:** Launch comparative ads '{attacker_brand} vs {target_brand}'",
-            f"**Week 3:** Special offer for {target_brand} customers switching to {attacker_brand}",
-            f"**Week 4:** PR campaign with case studies of successful switches from {target_brand}"
-        ]
-        
-        for item in attack_plan:
-            st.write(item)
-        
-        # ==================== SAMPLE COMPLAINTS ====================
-        st.markdown("## 📝 Sample Customer Complaints (Use in Marketing)")
-        
-        negative_samples = df[df['sentiment'] == "Negative"].head(5)
-        for idx, row in negative_samples.iterrows():
-            st.write(f"**Complaint {idx+1}:** \"{row['review']}\"")
-            st.markdown(f'<span class="exploit-tag">Use in ad copy</span>', unsafe_allow_html=True)
-        
-        # ==================== DOWNLOAD ATTACK PLAN ====================
-        st.markdown("---")
-        st.markdown("## 📥 Download Attack Materials")
-        
-        # Attack plan document
-        attack_doc = f"""
-        {attacker_brand.upper()} ATTACK PLAN vs {target_brand.upper()}
-        ==============================================
-        
-        EXECUTIVE SUMMARY:
-        - Target: {target_brand}
-        - Weaknesses Found: {negative_count}
-        - Exploitation Potential: {weakness_percent:.0f}%
-        - Recommended Attack Type: {'Price-based' if opportunities['price_attacks'] else 'Quality-based' if opportunities['product_attacks'] else 'Service-based'}
-        
-        KEY WEAKNESSES:
-        {chr(10).join(['- ' + w for w in opportunities['critical_weaknesses'][:3]])}
-        
-        MARKETING ATTACKS:
-        {chr(10).join(['- ' + a for a in opportunities['marketing_attacks']])}
-        
-        30-DAY PLAN:
-        1. Week 1-2: Awareness campaign
-        2. Week 3-4: Conversion campaign
-        3. Ongoing: Monitor competitor response
-        
-        SAMPLE AD COPY:
-        "Tired of {target_brand}'s issues? Switch to {attacker_brand} for better!"
-        
-        TARGET METRICS:
-        - Goal: Capture {weakness_percent:.0f}% of dissatisfied {target_brand} customers
-        - Timeline: 90 days
-        - Budget: Competitive advertising + Special offers
-        """
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.download_button(
-                label="📄 Download Attack Plan",
-                data=attack_doc,
-                file_name=f"Attack_Plan_{target_brand}.txt",
-                mime="text/plain"
-            )
-        
-        with col2:
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="📊 Download Weakness Data",
-                data=csv,
-                file_name=f"{target_brand}_Weaknesses.csv",
-                mime="text/csv"
-            )
+            if st.button("🏁 END BATTLE", use_container_width=True):
+                st.session_state.current_battle = None
+                st.rerun()
     
     else:
-        # Welcome screen
-        st.markdown("## 🎯 How to Use This Exploitation Engine")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            ### ⚔️ Business Exploitation Process:
-            
-            1. **Select Target:** Choose competitor to attack
-            2. **Enter Your Brand:** Who is doing the attacking
-            3. **Click Attack:** Generate exploitation plan
-            4. **Execute:** Use provided strategies
-            
-            ### 📊 What You Get:
-            - Competitor weakness analysis
-            - Marketing attack campaigns
-            - 30-day implementation plan
-            - Ready-to-use ad copy
-            - Downloadable attack materials
-            """)
-        
-        with col2:
-            st.markdown("""
-            ### 🎓 Capstone Focus:
-            
-            **Topic:** "Exploiting business in review"
-            
-            **Meaning:** Using competitor reviews to:
-            - Find their weaknesses
-            - Create attack strategies
-            - Steal their customers
-            - Grow your market share
-            
-            **Real Example:**
-            - Analyze Samsung reviews
-            - Find battery complaints
-            - Apple attacks with "Better battery life"
-            - Samsung customers switch to Apple
-            """)
-        
-        st.markdown("---")
-        st.warning(f"⚠️ **Ready to attack {target_brand}?** Click the ATTACK button above!")
+        st.markdown("""
+        <div style="text-align: center; padding: 50px;">
+            <div style="font-size: 4rem;" class="float">⚔️</div>
+            <h2>NO ACTIVE BATTLE</h2>
+            <p style="opacity: 0.7;">Select a mission from the Missions tab to begin battle!</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-# ==================== RUN APP ====================
-if __name__ == "__main__":
-    main()
+with tab3:
+    # WAR ROOM - Analytics Dashboard
+    st.markdown("<h2 style='text-align: center;'>📊 WAR ROOM - INTELLIGENCE DASHBOARD</h2>", unsafe_allow_html=True)
+    
+    # Quick Stats
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("""
+        <div class="stat-card">
+            <div style="font-size: 0.9em; opacity: 0.7;">BATTLES WON</div>
+            <div style="font-size: 2em; font-weight: bold; color: #00d4ff;">{}</div>
+        </div>
+        """.format(len(st.session_state.completed_missions)), unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="stat-card">
+            <div style="font-size: 0.9em; opacity: 0.7;">SUCCESS RATE</div>
+            <div style="font-size: 2em; font-weight: bold; color: #00b09b;">85%</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="stat-card">
+            <div style="font-size: 0.9em; opacity: 0.7;">ENEMIES DEFEATED</div>
+            <div style="font-size: 2em; font-weight: bold; color: #ff0080;">{}</div>
+        </div>
+        """.format(len(st.session_state.completed_missions)), unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown("""
+        <div class="stat-card">
+            <div style="font-size: 0.9em; opacity: 0.7;">NEXT RANK</div>
+            <div style="font-size: 2em; font-weight: bold; color: gold;">{} XP</div>
+        </div>
+        """.format((st.session_state.player_level * 1000) - st.session_state.player_xp), unsafe_allow_html=True)
+    
+    # XP Progress Chart
+    st.markdown("<h3>📈 CONQUEST PROGRESS</h3>", unsafe_allow_html=True)
+    
+    # Simulated progress data
+    progress_data = {
+        "Week": ["Week 1", "Week 2", "Week 3", "Week 4"],
+        "XP Earned": [150, 300, 220, 400],
+        "Battles": [2, 3, 2, 4]
+    }
+    
+    df = pd.DataFrame(progress_data)
+    fig = px.line(df, x="Week", y="XP Earned", title="Weekly XP Progress",
+                  markers=True, line_shape="spline")
+    fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                      font_color="white", title_font_color="white")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Recent Battles
+    st.markdown("<h3>🔄 RECENT BATTLES</h3>", unsafe_allow_html=True)
+    
+    recent_battles = [
+        {"mission": "Mobile Wars", "result": "Victory", "xp": 100, "date": "2024-01-20"},
+        {"mission": "Auto Battle", "result": "Victory", "xp": 150, "date": "2024-01-18"},
+        {"mission": "Food Fight", "result": "Partial", "xp": 50, "date": "2024-01-15"}
+    ]
+    
+    for battle in recent_battles:
+        result_color = "#00d4ff" if battle["result"] == "Victory" else "#ff8c00"
+        st.markdown(f"""
+        <div class="stat-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>{battle['mission']}</strong>
+                    <div style="font-size: 0.8em; opacity: 0.7;">{battle['date']}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: {result_color}; font-weight: bold;">{battle['result']}</div>
+                    <div class="xp-badge">+{battle['xp']} XP</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+with tab4:
+    # ACHIEVEMENTS
+    st.markdown("<h2 style='text-align: center;'>🏆 ACHIEVEMENTS & REWARDS</h2>", unsafe_allow_html=True)
+    
+    achievements = [
+        {"name": "First Blood", "desc": "Complete your first battle", "earned": len(st.session_state.completed_missions) > 0, "reward": "🎖️"},
+        {"name": "Conqueror", "desc": "Win 5 battles", "earned": len(st.session_state.completed_missions) >= 5, "reward": "🏆"},
+        {"name": "XP Master", "desc": "Earn 1000 XP", "earned": st.session_state.player_xp >= 1000, "reward": "⭐"},
+        {"name": "Strategic Genius", "desc": "Reach Level 5", "earned": st.session_state.player_level >= 5, "reward": "👑"},
+        {"name": "Custom Commander", "desc": "Create 3 custom battles", "earned": False, "reward": "⚔️"},
+    ]
+    
+    cols = st.columns(3)
+    for idx, achievement in enumerate(achievements):
+        with cols[idx % 3]:
+            earned_style = "border-color: gold; background: rgba(255,215,0,0.1);" if achievement["earned"] else "opacity: 0.5;"
+            
+            st.markdown(f"""
+            <div class="level-card" style="{earned_style}">
+                <div style="font-size: 2.5rem; text-align: center;">{achievement['reward']}</div>
+                <h4 style="text-align: center; margin: 10px 0;">{achievement['name']}</h4>
+                <p style="text-align: center; font-size: 0.9em; opacity: 0.8;">{achievement['desc']}</p>
+                <div style="text-align: center; margin-top: 10px;">
+                    {"✅ EARNED" if achievement['earned'] else "🔒 LOCKED"}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Next Rewards
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<h3>🎁 NEXT REWARDS</h3>", unsafe_allow_html=True)
+    
+    next_rewards = [
+        {"level": 2, "reward": "Unlock Advanced Analytics", "progress": min(100, (st.session_state.player_xp / 2000) * 100)},
+        {"level": 3, "reward": "Get Strategy Templates", "progress": min(100, (st.session_state.player_xp / 3000) * 100)},
+        {"level": 5, "reward": "Executive Dashboard Access", "progress": min(100, (st.session_state.player_xp / 5000) * 100)},
+    ]
+    
+    for reward in next_rewards:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span><b>Level {reward['level']}:</b> {reward['reward']}</span>
+                <span>{reward['progress']:.0f}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {reward['progress']}%"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==================== FOOTER ====================
-st.markdown("---")
 st.markdown("""
-<div style="text-align: center">
-    <p><strong>⚔️ CAPSTONE PROJECT: BUSINESS EXPLOITATION ENGINE</strong></p>
-    <p><em>"Turning Competitor Reviews into Attack Strategies"</em></p>
-    <p>Attack Intelligence | Marketing Warfare | Customer Acquisition</p>
+<br><br>
+<div style="text-align: center; opacity: 0.7; font-size: 0.9em;">
+    <p>🎮 BUSINESS CONQUEST v1.0 • Capstone Project: Exploiting Business in Review</p>
+    <p>Earn XP by analyzing customer reviews and defeating competitors!</p>
 </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ==================== JAVASCRIPT FOR BUTTONS ====================
+st.markdown("""
+<script>
+function startMission(missionId) {
+    // This would trigger a Streamlit rerun with the mission ID
+    // For now, we'll show an alert
+    alert("Starting Mission " + missionId + "! This would launch the battle in a real implementation.");
+    
+    // In real implementation, we would set Streamlit session state
+    // and trigger a rerun
+}
+</script>
 """, unsafe_allow_html=True)
