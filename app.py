@@ -51,40 +51,58 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== APP TITLE ====================
-st.markdown('<h1 class="main-title">🦅 Dynamic Business Exploitation Analyzer</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">Analyze ANY Brand & Generate Competitive Attack Strategies</p>', unsafe_allow_html=True)
-
 # ==================== SIDEBAR ====================
 with st.sidebar:
     st.header("⚙️ Analysis Settings")
     
-    # Brand input
-    brand_name = st.text_input("Enter ANY brand name:", "Samsung")
+    # Initialize session state
+    if 'brand_name' not in st.session_state:
+        st.session_state.brand_name = "Samsung"
+    if 'industry' not in st.session_state:
+        st.session_state.industry = "Electronics"
+    
+    # Brand input with on_change
+    brand_input = st.text_input(
+        "Enter ANY brand name:",
+        value=st.session_state.brand_name,
+        key="brand_input_key"
+    )
+    
+    # Update session state when input changes
+    if brand_input != st.session_state.brand_name:
+        st.session_state.brand_name = brand_input
     
     # Industry selection
     industry = st.selectbox(
         "Select Industry:",
         ["Electronics", "Food & Beverage", "Automotive", "Fashion", 
-         "Retail", "Technology", "Healthcare", "Other"]
+         "Retail", "Technology", "Healthcare", "Other"],
+        index=0,
+        key="industry_key"
     )
+    
+    # Update industry in session state
+    if industry != st.session_state.industry:
+        st.session_state.industry = industry
     
     # Analysis type
     analysis_type = st.radio(
         "Analysis Depth:",
-        ["Quick Scan", "Detailed Analysis", "Strategic Deep Dive"]
+        ["Quick Scan", "Detailed Analysis", "Strategic Deep Dive"],
+        key="analysis_type_key"
     )
     
     # Data source
     data_source = st.radio(
         "Data Source:",
-        ["🌐 Simulated Live Data", "💾 Sample Dataset", "📁 Upload CSV"]
+        ["🌐 Simulated Live Data", "💾 Sample Dataset", "📁 Upload CSV"],
+        key="data_source_key"
     )
     
     # File uploader
     uploaded_file = None
     if data_source == "📁 Upload CSV":
-        uploaded_file = st.file_uploader("Upload your reviews CSV", type=['csv'])
+        uploaded_file = st.file_uploader("Upload your reviews CSV", type=['csv'], key="file_uploader_key")
     
     st.markdown("---")
     
@@ -92,22 +110,26 @@ with st.sidebar:
     st.subheader("Quick Analyze:")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📱 Samsung"):
-            st.session_state.brand = "Samsung"
+        if st.button("📱 Samsung", key="btn_samsung"):
+            st.session_state.brand_name = "Samsung"
+            st.session_state.industry = "Electronics"
             st.rerun()
     with col2:
-        if st.button("🍕 Dominos"):
-            st.session_state.brand = "Dominos"
+        if st.button("🍕 Dominos", key="btn_dominos"):
+            st.session_state.brand_name = "Dominos"
+            st.session_state.industry = "Food & Beverage"
             st.rerun()
     
     col3, col4 = st.columns(2)
     with col3:
-        if st.button("🚗 Tesla"):
-            st.session_state.brand = "Tesla"
+        if st.button("🚗 Tesla", key="btn_tesla"):
+            st.session_state.brand_name = "Tesla"
+            st.session_state.industry = "Automotive"
             st.rerun()
     with col4:
-        if st.button("👟 Nike"):
-            st.session_state.brand = "Nike"
+        if st.button("👟 Nike", key="btn_nike"):
+            st.session_state.brand_name = "Nike"
+            st.session_state.industry = "Fashion"
             st.rerun()
     
     st.markdown("---")
@@ -283,22 +305,54 @@ def analyze_for_exploitation(df, brand, industry):
 
 # ==================== MAIN APP LOGIC ====================
 def main():
-    # Initialize session state for brand
-    if 'brand' in st.session_state:
-        brand_name = st.session_state.brand
+    # Get values from session state
+    brand_name = st.session_state.brand_name
+    industry = st.session_state.industry
     
-    # Check if we should analyze
-    analyze_clicked = st.button(f"🚀 Analyze {brand_name}", type="primary", use_container_width=True)
+    # ==================== APP TITLE ====================
+    st.markdown('<h1 class="main-title">🦅 Dynamic Business Exploitation Analyzer</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Analyze ANY Brand & Generate Competitive Attack Strategies</p>', unsafe_allow_html=True)
     
-    if analyze_clicked or ('brand' in st.session_state and st.session_state.get('auto_analyze', False)):
+    # ==================== CURRENT TARGET DISPLAY ====================
+    st.markdown("### 🎯 Current Analysis Target")
+    
+    col1, col2, col3 = st.columns([2, 2, 1])
+    
+    with col1:
+        st.info(f"**Brand:** {brand_name}")
+    
+    with col2:
+        st.info(f"**Industry:** {industry}")
+    
+    with col3:
+        if st.button("🔄 Update Settings", type="secondary"):
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # ==================== ANALYSIS BUTTON ====================
+    analyze_clicked = st.button(
+        f"🚀 ANALYZE {brand_name.upper()}", 
+        type="primary", 
+        use_container_width=True,
+        key="analyze_button"
+    )
+    
+    # Get uploaded file from session
+    uploaded_file = None
+    if st.session_state.get('data_source_key') == "📁 Upload CSV":
+        uploaded_file = st.session_state.get('file_uploader_key')
+    
+    if analyze_clicked:
         
         # Generate or load data
-        if data_source == "📁 Upload CSV" and uploaded_file:
+        if st.session_state.get('data_source_key') == "📁 Upload CSV" and uploaded_file:
             df = pd.read_csv(uploaded_file)
             st.success(f"✅ Uploaded {len(df)} reviews for {brand_name}")
         else:
             with st.spinner(f"Generating realistic data for {brand_name} in {industry}..."):
-                df = generate_dynamic_data(brand_name, industry)
+                df = generate_dynamic_data(brand_name, industry, 
+                                         num_reviews=30 if analysis_type == "Quick Scan" else 50)
                 st.success(f"✅ Generated {len(df)} realistic reviews for {brand_name}")
         
         # Perform analysis
@@ -514,7 +568,8 @@ def main():
                 label="📄 Download Text Report",
                 data=report_content,
                 file_name=f"{brand_name}_exploitation_report.txt",
-                mime="text/plain"
+                mime="text/plain",
+                key="download_report"
             )
         
         with col2:
@@ -524,7 +579,8 @@ def main():
                 label="📊 Download Review Data (CSV)",
                 data=csv,
                 file_name=f"{brand_name}_reviews_data.csv",
-                mime="text/csv"
+                mime="text/csv",
+                key="download_data"
             )
     
     else:
@@ -537,15 +593,17 @@ def main():
             st.markdown("""
             ### How This System Works:
             
-            1. **Enter ANY brand name** - Electronics, Food, Automotive, Fashion, etc.
+            1. **Enter ANY brand name** in the sidebar
             2. **Select the industry** for context-aware analysis
-            3. **Get instant business intelligence** including:
-               - Competitor weaknesses to exploit
-               - Attack strategies for market capture
-               - Defense strategies for your brand
-               - Market gap identification
+            3. **Choose analysis depth** (Quick, Detailed, Strategic)
+            4. **Click 'ANALYZE' button** above
             
-            4. **Download actionable reports** for business teams
+            ### 📊 You'll Get:
+            - Competitor weaknesses to exploit
+            - Attack strategies for market capture  
+            - Defense strategies for your brand
+            - Market gap identification
+            - Downloadable business reports
             
             ### 🎓 Capstone Project Value:
             - Demonstrates REAL business application of text analytics
@@ -555,15 +613,13 @@ def main():
         
         with col2:
             st.image("https://cdn-icons-png.flaticon.com/512/1534/1534938.png", width=150)
-            st.markdown("### Try These Brands:")
-            st.write("• Samsung (Electronics)")
-            st.write("• Dominos (Food)")
-            st.write("• Tesla (Automotive)")
-            st.write("• Nike (Fashion)")
-            st.write("• Starbucks (Beverages)")
+            st.markdown("### Quick Start:")
+            st.write("1. Enter brand name")
+            st.write("2. Select industry")
+            st.write("3. Click ANALYZE button")
         
         st.markdown("---")
-        st.info("👈 **Use the sidebar to enter any brand and start analysis!**")
+        st.warning(f"⚠️ **Ready to analyze {brand_name}?** Click the 'ANALYZE' button above!")
 
 # ==================== RUN APP ====================
 if __name__ == "__main__":
