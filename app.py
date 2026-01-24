@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
-    page_title="Dynamic Business Exploitation Analyzer",
-    page_icon="🦅",
+    page_title="Business Exploitation Engine",
+    page_icon="⚔️",
     layout="wide"
 )
 
@@ -16,610 +16,497 @@ st.markdown("""
 <style>
     .main-title {
         font-size: 2.8rem;
-        color: #1E3A8A;
+        color: #DC2626;
         text-align: center;
         margin-bottom: 0.5rem;
         font-weight: bold;
     }
     .sub-title {
-        font-size: 1.2rem;
-        color: #6B7280;
+        font-size: 1.4rem;
+        color: #7F1D1D;
         text-align: center;
         margin-bottom: 2rem;
+        font-style: italic;
     }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .attack-card {
+        background: linear-gradient(135deg, #DC2626 0%, #7F1D1D 100%);
         color: white;
         padding: 1.2rem;
         border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
     }
-    .attack-strategy {
+    .weakness-highlight {
+        background-color: #FEE2E2;
+        border-left: 5px solid #DC2626;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 0.5rem 0;
+    }
+    .strategy-box {
         background-color: #FEF3C7;
-        border-left: 5px solid #D97706;
-        padding: 1rem;
-        border-radius: 5px;
-        margin: 0.5rem 0;
+        border: 2px solid #D97706;
+        padding: 1.2rem;
+        border-radius: 10px;
+        margin: 1rem 0;
     }
-    .positive-insight {
-        background-color: #D1FAE5;
-        border-left: 5px solid #10B981;
-        padding: 1rem;
-        border-radius: 5px;
-        margin: 0.5rem 0;
+    .exploit-tag {
+        background-color: #DC2626;
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        display: inline-block;
+        margin: 0.2rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
-    st.header("⚙️ Analysis Settings")
+    st.header("⚔️ Target Selection")
     
     # Initialize session state
-    if 'brand_name' not in st.session_state:
-        st.session_state.brand_name = "Samsung"
+    if 'target_brand' not in st.session_state:
+        st.session_state.target_brand = "Samsung"
+    if 'attacker_brand' not in st.session_state:
+        st.session_state.attacker_brand = "Your Brand"
     if 'industry' not in st.session_state:
         st.session_state.industry = "Electronics"
     
-    # Brand input with on_change
-    brand_input = st.text_input(
-        "Enter ANY brand name:",
-        value=st.session_state.brand_name,
-        key="brand_input_key"
+    # TARGET brand (to attack)
+    st.subheader("🎯 Target to Attack:")
+    target_input = st.text_input(
+        "Enter competitor brand to analyze:",
+        value=st.session_state.target_brand,
+        key="target_input"
     )
     
-    # Update session state when input changes
-    if brand_input != st.session_state.brand_name:
-        st.session_state.brand_name = brand_input
+    if target_input != st.session_state.target_brand:
+        st.session_state.target_brand = target_input
     
-    # Industry selection
+    # ATTACKER brand (your brand)
+    st.subheader("🛡️ Your Brand:")
+    attacker_input = st.text_input(
+        "Enter your brand name:",
+        value=st.session_state.attacker_brand,
+        key="attacker_input"
+    )
+    
+    if attacker_input != st.session_state.attacker_brand:
+        st.session_state.attacker_brand = attacker_input
+    
+    # Industry
     industry = st.selectbox(
-        "Select Industry:",
+        "Industry:",
         ["Electronics", "Food & Beverage", "Automotive", "Fashion", 
-         "Retail", "Technology", "Healthcare", "Other"],
+         "Retail", "Technology", "Other"],
         index=0,
         key="industry_key"
     )
     
-    # Update industry in session state
     if industry != st.session_state.industry:
         st.session_state.industry = industry
     
-    # Analysis type
-    analysis_type = st.radio(
-        "Analysis Depth:",
-        ["Quick Scan", "Detailed Analysis", "Strategic Deep Dive"],
-        key="analysis_type_key"
-    )
-    
-    # Data source
+    # Data source (simplified)
     data_source = st.radio(
         "Data Source:",
-        ["🌐 Simulated Live Data", "💾 Sample Dataset", "📁 Upload CSV"],
-        key="data_source_key"
+        ["🌐 Generate Sample Data", "📁 Upload Your Data"]
     )
     
-    # File uploader
     uploaded_file = None
-    if data_source == "📁 Upload CSV":
-        uploaded_file = st.file_uploader("Upload your reviews CSV", type=['csv'], key="file_uploader_key")
+    if data_source == "📁 Upload Your Data":
+        uploaded_file = st.file_uploader("Upload competitor reviews CSV", type=['csv'])
     
     st.markdown("---")
     
-    # Quick analyze buttons
-    st.subheader("Quick Analyze:")
+    # Quick targets
+    st.subheader("Quick Targets:")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📱 Samsung", key="btn_samsung"):
-            st.session_state.brand_name = "Samsung"
+        if st.button("📱 Attack Samsung"):
+            st.session_state.target_brand = "Samsung"
             st.session_state.industry = "Electronics"
             st.rerun()
     with col2:
-        if st.button("🍕 Dominos", key="btn_dominos"):
-            st.session_state.brand_name = "Dominos"
+        if st.button("🍕 Attack Dominos"):
+            st.session_state.target_brand = "Dominos"
             st.session_state.industry = "Food & Beverage"
             st.rerun()
     
-    col3, col4 = st.columns(2)
-    with col3:
-        if st.button("🚗 Tesla", key="btn_tesla"):
-            st.session_state.brand_name = "Tesla"
-            st.session_state.industry = "Automotive"
-            st.rerun()
-    with col4:
-        if st.button("👟 Nike", key="btn_nike"):
-            st.session_state.brand_name = "Nike"
-            st.session_state.industry = "Fashion"
-            st.rerun()
-    
     st.markdown("---")
-    st.caption("🎓 Capstone Project: Exploiting Business Intelligence from Reviews")
+    st.caption("⚔️ Capstone: Exploiting Business Intelligence from Reviews")
 
-# ==================== DYNAMIC DATA GENERATION ====================
-def generate_dynamic_data(brand, industry, num_reviews=50):
-    """Generate realistic review data for ANY brand"""
+# ==================== DATA GENERATION ====================
+def generate_attack_data(target_brand, industry):
+    """Generate data for exploitation analysis"""
     
-    # Industry-specific review templates
-    industry_templates = {
+    # Industry-specific weaknesses
+    industry_weaknesses = {
         "Electronics": [
-            f"The {brand} phone's battery life is amazing, lasts all day",
-            f"{brand} camera quality could be better in low light",
-            f"Love the {brand} display, colors are so vibrant",
-            f"{brand} customer service needs major improvement",
-            f"Great value for money from {brand} during sale season",
-            f"{brand} software updates are too slow compared to competitors",
-            f"Facing heating issues with my new {brand} device",
-            f"{brand} build quality feels premium and durable",
-            f"Charger not included with {brand} device - disappointing",
-            f"Best {brand} product I've purchased in years!"
+            f"{target_brand} battery drains too fast",
+            f"{target_brand} gets hot during gaming",
+            f"{target_brand} software updates are slow",
+            f"{target_brand} customer service is poor",
+            f"{target_brand} price increased but features didn't",
+            f"{target_brand} charger not included in box",
+            f"{target_brand} camera struggles in low light",
+            f"{target_brand} display scratches easily",
+            f"{target_brand} face unlock doesn't work well",
+            f"{target_brand} 5G connectivity issues"
         ],
         "Food & Beverage": [
-            f"{brand} pizza always arrives hot and fresh",
-            f"{brand} coffee tastes bitter, not like before",
-            f"Love the ambiance at {brand} outlets",
-            f"{brand} delivery is always faster than promised",
-            f"Prices at {brand} are getting too expensive",
-            f"{brand} customer service was rude on phone",
-            f"Best quality ingredients at {brand}",
-            f"{brand} app makes ordering so convenient",
-            f"Portion sizes at {brand} have reduced recently",
-            f"Would definitely recommend {brand} to friends"
+            f"{target_brand} pizza arrives cold sometimes",
+            f"{target_brand} prices increased recently",
+            f"{target_brand} delivery is often late",
+            f"{target_brand} portion sizes reduced",
+            f"{target_brand} customer support rude",
+            f"{target_brand} app has payment issues",
+            f"{target_brand} food quality inconsistent",
+            f"{target_brand} limited vegetarian options",
+            f"{target_brand} waiting time too long",
+            f"{target_brand} packaging not eco-friendly"
         ],
         "Automotive": [
-            f"{brand} mileage is better than advertised",
-            f"{brand} service center experience was terrible",
-            f"Love the safety features in {brand} cars",
-            f"{brand} waiting period is too long for delivery",
-            f"Best driving experience with {brand}",
-            f"{brand} resale value is excellent",
-            f"Facing issues with {brand} infotainment system",
-            f"{brand} design looks stunning on road",
-            f"{brand} maintenance costs are too high",
-            f"Most comfortable seats in {brand} cars"
-        ],
-        "Fashion": [
-            f"{brand} shoes are extremely comfortable for all-day wear",
-            f"{brand} clothing sizes run too small",
-            f"Love the latest {brand} collection design",
-            f"{brand} quality has deteriorated over years",
-            f"Best fitting jeans from {brand}",
-            f"{brand} prices are too high for the quality",
-            f"{brand} customer support helped with exchange quickly",
-            f"Colors fade after few washes with {brand} clothes",
-            f"{brand} brand value makes it worth the price",
-            f"Would buy from {brand} again definitely"
+            f"{target_brand} service center expensive",
+            f"{target_brand} mileage less than advertised",
+            f"{target_brand} waiting period too long",
+            f"{target_brand} infotainment system laggy",
+            f"{target_brand} spare parts costly",
+            f"{target_brand} AC not powerful enough",
+            f"{target_brand} suspension too stiff",
+            f"{target_brand} resale value dropping",
+            f"{target_brand} service appointments delayed",
+            f"{target_brand} warranty claims rejected"
         ]
     }
     
-    # Get templates for selected industry or use general templates
-    templates = industry_templates.get(industry, [
-        f"{brand} product quality meets expectations",
-        f"{brand} customer service could be better",
-        f"Good value from {brand} products",
-        f"Facing issues with {brand} recently",
-        f"Would recommend {brand} to others"
+    # Get weaknesses for industry
+    weaknesses = industry_weaknesses.get(industry, [
+        f"{target_brand} quality has decreased",
+        f"{target_brand} customer service needs improvement",
+        f"{target_brand} prices are too high",
+        f"{target_brand} delivery takes too long"
     ])
     
-    # Generate reviews
+    # Generate reviews (70% negative for exploitation analysis)
     reviews = []
-    start_date = datetime.now() - timedelta(days=90)
-    
-    for i in range(num_reviews):
-        review_date = start_date + timedelta(days=random.randint(0, 90))
+    for i in range(40):
+        is_negative = random.random() < 0.7  # 70% negative for attack analysis
         
-        # Base rating based on sentiment words in template
-        template = random.choice(templates)
-        base_rating = 3  # Default neutral
-        
-        # Adjust rating based on sentiment words
-        positive_words = ['amazing', 'love', 'great', 'best', 'excellent', 'comfortable', 'fresh', 'hot']
-        negative_words = ['could be better', 'needs improvement', 'disappointing', 'terrible', 'bitter', 'rude', 'facing issues']
-        
-        if any(word in template.lower() for word in positive_words):
-            base_rating = random.randint(4, 5)
-        elif any(word in template.lower() for word in negative_words):
-            base_rating = random.randint(1, 2)
+        if is_negative:
+            review = random.choice(weaknesses)
+            rating = random.randint(1, 2)
+            sentiment = "Negative"
         else:
-            base_rating = random.randint(3, 4)
-        
-        # Add some random variation
-        final_rating = max(1, min(5, base_rating + random.randint(-1, 1)))
+            # Some positive reviews for balance
+            positive_templates = [
+                f"{target_brand} product works well",
+                f"Happy with {target_brand} service",
+                f"{target_brand} quality is good",
+                f"Would recommend {target_brand}"
+            ]
+            review = random.choice(positive_templates)
+            rating = random.randint(4, 5)
+            sentiment = "Positive"
         
         reviews.append({
-            "review": template,
-            "rating": final_rating,
-            "date": review_date.strftime("%Y-%m-%d"),
-            "source": random.choice(["Amazon", "Flipkart", "Twitter", "Google Reviews", "YouTube", "Reddit"]),
-            "sentiment": "Positive" if final_rating >= 4 else ("Negative" if final_rating <= 2 else "Neutral")
+            "review": review,
+            "rating": rating,
+            "sentiment": sentiment,
+            "source": random.choice(["Amazon", "Twitter", "Google", "Forum"]),
+            "date": (datetime.now() - timedelta(days=random.randint(0, 90))).strftime("%Y-%m-%d")
         })
     
     return pd.DataFrame(reviews)
 
-# ==================== BUSINESS EXPLOITATION ANALYSIS ====================
-def analyze_for_exploitation(df, brand, industry):
-    """Generate business exploitation insights"""
+# ==================== EXPLOITATION ANALYSIS ====================
+def find_exploitation_opportunities(df, target_brand, attacker_brand, industry):
+    """Find opportunities to exploit competitor weaknesses"""
     
-    insights = {
-        "weaknesses": [],
-        "strengths": [],
-        "attack_opportunities": [],
-        "defense_strategies": [],
-        "market_gaps": []
+    opportunities = {
+        "critical_weaknesses": [],
+        "marketing_attacks": [],
+        "product_attacks": [],
+        "price_attacks": [],
+        "service_attacks": [],
+        "urgent_actions": []
     }
     
-    # Calculate basic metrics
-    avg_rating = df['rating'].mean()
-    total_reviews = len(df)
-    positive_pct = (len(df[df['rating'] >= 4]) / total_reviews) * 100
-    negative_pct = (len(df[df['rating'] <= 2]) / total_reviews) * 100
+    # Get negative reviews
+    negative_df = df[df['sentiment'] == "Negative"]
     
-    # Analyze text for specific aspects
-    all_reviews_text = ' '.join(df['review'].str.lower())
+    if len(negative_df) == 0:
+        return opportunities
     
-    # Common business aspects to check
-    aspects = {
-        "price": ['expensive', 'cheap', 'price', 'cost', 'value', 'worth', 'affordable'],
-        "quality": ['quality', 'durable', 'breaks', 'issue', 'problem', 'defect'],
-        "service": ['service', 'support', 'customer', 'help', 'rude', 'polite', 'responsive'],
-        "delivery": ['delivery', 'shipping', 'fast', 'slow', 'late', 'on time'],
-        "features": ['feature', 'camera', 'battery', 'display', 'performance', 'speed']
-    }
+    # Analyze complaint patterns
+    all_complaints = ' '.join(negative_df['review'].str.lower())
     
-    # Find weaknesses (negative mentions)
-    negative_reviews = df[df['rating'] <= 2]
-    if len(negative_reviews) > 0:
-        negative_text = ' '.join(negative_reviews['review'].str.lower())
-        
-        for aspect, keywords in aspects.items():
-            keyword_count = sum(1 for keyword in keywords if keyword in negative_text)
-            if keyword_count > 2:  # If mentioned multiple times
-                insights["weaknesses"].append(f"**{aspect.capitalize()}**: {keyword_count} negative mentions")
-                
-                # Attack opportunity based on weakness
-                if aspect == "price":
-                    insights["attack_opportunities"].append(f"Attack {brand} on pricing - offer 20% better value")
-                elif aspect == "service":
-                    insights["attack_opportunities"].append(f"Highlight your superior customer service vs {brand}")
-                elif aspect == "quality":
-                    insights["attack_opportunities"].append(f"Showcase your quality assurance process vs {brand}")
+    # 1. PRICE EXPLOITATION
+    price_keywords = ['expensive', 'price', 'cost', 'high', 'increased', 'costly']
+    price_complaints = [c for c in price_keywords if c in all_complaints]
+    if price_complaints:
+        opportunities["price_attacks"].append(
+            f"**💰 Price Attack:** {target_brand} seen as expensive"
+        )
+        opportunities["marketing_attacks"].append(
+            f"Run ads: '{attacker_brand} offers same features at 20% lower price than {target_brand}'"
+        )
+        opportunities["urgent_actions"].append(
+            f"Launch price comparison campaign against {target_brand}"
+        )
     
-    # Find strengths (positive mentions)
-    positive_reviews = df[df['rating'] >= 4]
-    if len(positive_reviews) > 0:
-        positive_text = ' '.join(positive_reviews['review'].str.lower())
-        
-        for aspect, keywords in aspects.items():
-            keyword_count = sum(1 for keyword in keywords if keyword in positive_text)
-            if keyword_count > 2:
-                insights["strengths"].append(f"**{aspect.capitalize()}**: {keyword_count} positive mentions")
-                insights["defense_strategies"].append(f"Match {brand}'s strength in {aspect}")
+    # 2. QUALITY EXPLOITATION
+    quality_keywords = ['quality', 'poor', 'bad', 'decreased', 'scratches', 'issues']
+    quality_complaints = [c for c in quality_keywords if c in all_complaints]
+    if quality_complaints:
+        opportunities["product_attacks"].append(
+            f"**🎯 Quality Attack:** {target_brand} has quality issues"
+        )
+        opportunities["marketing_attacks"].append(
+            f"Showcase your quality control vs {target_brand}'s failures"
+        )
     
-    # Market gaps (wish statements)
-    wish_keywords = ['wish', 'hope', 'should have', 'if only', 'would be better if']
-    wish_reviews = [r for r in df['review'] if any(w in r.lower() for w in wish_keywords)]
-    if wish_reviews:
-        insights["market_gaps"].append(f"{len(wish_reviews)} customers expressed unmet needs")
-        insights["market_gaps"].append(f"Sample wish: \"{wish_reviews[0][:100]}...\"")
+    # 3. SERVICE EXPLOITATION
+    service_keywords = ['service', 'support', 'rude', 'slow', 'delayed', 'poor']
+    service_complaints = [c for c in service_keywords if c in all_complaints]
+    if service_complaints:
+        opportunities["service_attacks"].append(
+            f"**📞 Service Attack:** {target_brand} service complaints"
+        )
+        opportunities["urgent_actions"].append(
+            f"Target {target_brand} customers with 'Better Service Guarantee'"
+        )
     
-    return insights, avg_rating, positive_pct, negative_pct
+    # 4. SPECIFIC WEAKNESSES
+    # Find most frequent complaints
+    from collections import Counter
+    words = ' '.join(negative_df['review']).lower().split()
+    common_words = Counter(words).most_common(10)
+    
+    for word, count in common_words:
+        if count >= 3 and len(word) > 3:  # Significant complaints
+            if word not in ['the', 'and', 'this', 'that', 'with', 'from']:
+                opportunities["critical_weaknesses"].append(
+                    f"'{word}' mentioned {count} times in complaints"
+                )
+    
+    return opportunities
 
-# ==================== MAIN APP LOGIC ====================
+# ==================== MAIN APP ====================
 def main():
-    # Get values from session state
-    brand_name = st.session_state.brand_name
+    # Get session values
+    target_brand = st.session_state.target_brand
+    attacker_brand = st.session_state.attacker_brand
     industry = st.session_state.industry
     
-    # ==================== APP TITLE ====================
-    st.markdown('<h1 class="main-title">🦅 Dynamic Business Exploitation Analyzer</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">Analyze ANY Brand & Generate Competitive Attack Strategies</p>', unsafe_allow_html=True)
+    # ==================== TITLE ====================
+    st.markdown('<h1 class="main-title">⚔️ BUSINESS EXPLOITATION ENGINE</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-title">Attack Plan: {attacker_brand} → {target_brand}</p>', unsafe_allow_html=True)
     
-    # ==================== CURRENT TARGET DISPLAY ====================
-    st.markdown("### 🎯 Current Analysis Target")
-    
-    col1, col2, col3 = st.columns([2, 2, 1])
+    # ==================== BATTLE DISPLAY ====================
+    col1, col2, col3 = st.columns([1, 2, 1])
     
     with col1:
-        st.info(f"**Brand:** {brand_name}")
+        st.markdown(f'### 🛡️ {attacker_brand}')
+        st.info("Your Brand")
     
     with col2:
-        st.info(f"**Industry:** {industry}")
+        st.markdown("### ⚔️ VS")
+        st.markdown('<div style="text-align: center; font-size: 2rem;">🎯</div>', unsafe_allow_html=True)
     
     with col3:
-        if st.button("🔄 Update Settings", type="secondary"):
-            st.rerun()
+        st.markdown(f'### 🎯 {target_brand}')
+        st.warning("Target Competitor")
     
     st.markdown("---")
     
-    # ==================== ANALYSIS BUTTON ====================
-    analyze_clicked = st.button(
-        f"🚀 ANALYZE {brand_name.upper()}", 
-        type="primary", 
+    # ==================== ATTACK BUTTON ====================
+    attack_clicked = st.button(
+        f"⚔️ GENERATE ATTACK PLAN AGAINST {target_brand.upper()}",
+        type="primary",
         use_container_width=True,
-        key="analyze_button"
+        key="attack_button"
     )
     
-    # Get uploaded file from session
-    uploaded_file = None
-    if st.session_state.get('data_source_key') == "📁 Upload CSV":
-        uploaded_file = st.session_state.get('file_uploader_key')
-    
-    if analyze_clicked:
+    if attack_clicked:
+        # Generate attack data
+        with st.spinner(f"Analyzing {target_brand} weaknesses for exploitation..."):
+            df = generate_attack_data(target_brand, industry)
+            
+            # Find exploitation opportunities
+            opportunities = find_exploitation_opportunities(df, target_brand, attacker_brand, industry)
         
-        # Generate or load data
-        if st.session_state.get('data_source_key') == "📁 Upload CSV" and uploaded_file:
-            df = pd.read_csv(uploaded_file)
-            st.success(f"✅ Uploaded {len(df)} reviews for {brand_name}")
-        else:
-            with st.spinner(f"Generating realistic data for {brand_name} in {industry}..."):
-                df = generate_dynamic_data(brand_name, industry, 
-                                         num_reviews=30 if analysis_type == "Quick Scan" else 50)
-                st.success(f"✅ Generated {len(df)} realistic reviews for {brand_name}")
+        st.success(f"✅ Found {len(df[df['sentiment']=='Negative'])} weaknesses in {target_brand}")
         
-        # Perform analysis
-        with st.spinner("Analyzing for business exploitation opportunities..."):
-            insights, avg_rating, positive_pct, negative_pct = analyze_for_exploitation(df, brand_name, industry)
+        # ==================== WEAKNESS DASHBOARD ====================
+        st.markdown("## 🔍 Target Weakness Analysis")
         
-        # ==================== DISPLAY RESULTS ====================
-        
-        # Key Metrics
-        st.markdown("## 📊 Brand Performance Metrics")
-        
-        col1, col2, col3, col4 = st.columns(4)
+        # Metrics
+        col1, col2, col3 = st.columns(3)
+        negative_count = len(df[df['sentiment'] == "Negative"])
         
         with col1:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Avg Rating", f"{avg_rating:.2f}/5", 
-                     delta="High" if avg_rating >= 4.0 else ("Low" if avg_rating <= 2.5 else "Average"))
+            st.markdown('<div class="attack-card">', unsafe_allow_html=True)
+            st.metric("Weaknesses Found", negative_count)
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Positive %", f"{positive_pct:.1f}%")
+            st.markdown('<div class="attack-card">', unsafe_allow_html=True)
+            weakness_percent = (negative_count / len(df)) * 100
+            st.metric("Exploitation Potential", f"{weakness_percent:.0f}%")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col3:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Negative %", f"{negative_pct:.1f}%")
+            st.markdown('<div class="attack-card">', unsafe_allow_html=True)
+            st.metric("Avg Target Rating", f"{df['rating'].mean():.1f}/5")
             st.markdown('</div>', unsafe_allow_html=True)
         
-        with col4:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Total Reviews", len(df))
-            st.markdown('</div>', unsafe_allow_html=True)
+        # ==================== EXPLOITATION STRATEGIES ====================
+        st.markdown("## 🎯 Exploitation Strategies")
         
+        # Critical Weaknesses
+        if opportunities["critical_weaknesses"]:
+            st.markdown("### ⚠️ Critical Weaknesses to Exploit")
+            for weakness in opportunities["critical_weaknesses"][:5]:
+                st.markdown(f'<div class="weakness-highlight">{weakness}</div>', unsafe_allow_html=True)
+        
+        # Marketing Attacks
+        if opportunities["marketing_attacks"]:
+            st.markdown("### 📢 Marketing Attack Campaigns")
+            for attack in opportunities["marketing_attacks"]:
+                st.markdown(f'<div class="strategy-box">{attack}</div>', unsafe_allow_html=True)
+        
+        # Price Attacks
+        if opportunities["price_attacks"]:
+            st.markdown("### 💰 Price-Based Attacks")
+            for attack in opportunities["price_attacks"]:
+                st.write(f"• {attack}")
+        
+        # Product Attacks  
+        if opportunities["product_attacks"]:
+            st.markdown("### 🎯 Product-Based Attacks")
+            for attack in opportunities["product_attacks"]:
+                st.write(f"• {attack}")
+        
+        # ==================== 30-DAY ATTACK PLAN ====================
+        st.markdown("## 📅 30-Day Attack Implementation Plan")
+        
+        attack_plan = [
+            f"**Week 1:** Social media blitz highlighting {target_brand}'s top 3 weaknesses",
+            f"**Week 2:** Launch comparative ads '{attacker_brand} vs {target_brand}'",
+            f"**Week 3:** Special offer for {target_brand} customers switching to {attacker_brand}",
+            f"**Week 4:** PR campaign with case studies of successful switches from {target_brand}"
+        ]
+        
+        for item in attack_plan:
+            st.write(item)
+        
+        # ==================== SAMPLE COMPLAINTS ====================
+        st.markdown("## 📝 Sample Customer Complaints (Use in Marketing)")
+        
+        negative_samples = df[df['sentiment'] == "Negative"].head(5)
+        for idx, row in negative_samples.iterrows():
+            st.write(f"**Complaint {idx+1}:** \"{row['review']}\"")
+            st.markdown(f'<span class="exploit-tag">Use in ad copy</span>', unsafe_allow_html=True)
+        
+        # ==================== DOWNLOAD ATTACK PLAN ====================
         st.markdown("---")
+        st.markdown("## 📥 Download Attack Materials")
         
-        # Tabs for different analyses
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "📋 Reviews Data", "🎯 Exploitation Analysis", "⚔️ Attack Strategy", 
-            "🛡️ Defense Strategy", "📈 Visual Analytics"
-        ])
+        # Attack plan document
+        attack_doc = f"""
+        {attacker_brand.upper()} ATTACK PLAN vs {target_brand.upper()}
+        ==============================================
         
-        with tab1:
-            # Data tab
-            st.subheader(f"Sample Reviews for {brand_name}")
-            st.dataframe(df[['review', 'rating', 'date', 'source']].head(10), use_container_width=True)
-            
-            # Rating distribution
-            st.subheader("Rating Distribution")
-            rating_counts = df['rating'].value_counts().sort_index()
-            fig1 = px.bar(
-                x=rating_counts.index, 
-                y=rating_counts.values,
-                labels={'x': 'Rating (1-5)', 'y': 'Number of Reviews'},
-                title=f"{brand_name} Customer Ratings Distribution"
-            )
-            st.plotly_chart(fig1, use_container_width=True)
-        
-        with tab2:
-            # Exploitation analysis tab
-            st.subheader("🔍 Weaknesses Identified")
-            if insights["weaknesses"]:
-                for weakness in insights["weaknesses"]:
-                    st.markdown(f'<div class="attack-strategy">{weakness}</div>', unsafe_allow_html=True)
-            else:
-                st.info(f"No major weaknesses identified for {brand_name}")
-            
-            st.subheader("✨ Strengths Identified")
-            if insights["strengths"]:
-                for strength in insights["strengths"]:
-                    st.markdown(f'<div class="positive-insight">{strength}</div>', unsafe_allow_html=True)
-            else:
-                st.info(f"No major strengths highlighted for {brand_name}")
-            
-            st.subheader("📈 Market Gaps")
-            if insights["market_gaps"]:
-                for gap in insights["market_gaps"]:
-                    st.write(gap)
-            else:
-                st.info("No clear market gaps identified")
-        
-        with tab3:
-            # Attack strategy tab
-            st.subheader("⚔️ Competitive Attack Opportunities")
-            
-            if insights["attack_opportunities"]:
-                st.warning(f"**PRIMARY TARGET: {brand_name}**")
-                
-                for i, opportunity in enumerate(insights["attack_opportunities"], 1):
-                    st.markdown(f"**{i}. {opportunity}**")
-                
-                # Action plan
-                st.subheader("📋 30-Day Attack Plan")
-                
-                attack_plan = [
-                    f"Week 1: Social media campaign targeting {brand_name}'s weaknesses",
-                    f"Week 2: Comparative advertising highlighting your advantages over {brand_name}",
-                    f"Week 3: Special offers for {brand_name} customers looking to switch",
-                    f"Week 4: PR campaign showcasing customer success stories vs {brand_name}"
-                ]
-                
-                for item in attack_plan:
-                    st.write(f"• {item}")
-                
-                # ROI estimate
-                if negative_pct > 20:
-                    st.success(f"💰 **Potential Impact:** Targeting {negative_pct:.0f}% dissatisfied customers could capture significant market share")
-            else:
-                st.info(f"{brand_name} appears strong. Consider differentiation strategy instead of direct attack.")
-        
-        with tab4:
-            # Defense strategy tab
-            st.subheader("🛡️ Defense & Improvement Strategy")
-            
-            if insights["weaknesses"]:
-                st.warning(f"**AREAS NEEDING DEFENSE for {brand_name}:**")
-                for weakness in insights["weaknesses"][:3]:  # Top 3 weaknesses
-                    st.write(f"• {weakness.replace('**', '')}")
-                
-                st.subheader("📋 Improvement Roadmap")
-                improvement_plan = [
-                    "Address top customer complaints within 60 days",
-                    "Enhance customer service training",
-                    "Implement quality control measures",
-                    "Launch customer satisfaction survey"
-                ]
-                
-                for item in improvement_plan:
-                    st.write(f"• {item}")
-            else:
-                st.success(f"✅ {brand_name} has good defensive position")
-                st.write("**Maintenance Strategy:**")
-                st.write("• Continue monitoring customer feedback")
-                st.write("• Maintain quality standards")
-                st.write("• Innovate to stay ahead of competitors")
-            
-            if insights["defense_strategies"]:
-                st.subheader("💪 Strength Reinforcement")
-                for strategy in insights["defense_strategies"]:
-                    st.write(f"• {strategy}")
-        
-        with tab5:
-            # Visual analytics tab
-            st.subheader("📈 Sentiment Trend Over Time")
-            
-            # Convert date and analyze trends
-            df['date'] = pd.to_datetime(df['date'])
-            df['month'] = df['date'].dt.to_period('M').astype(str)
-            
-            monthly_avg = df.groupby('month')['rating'].mean().reset_index()
-            
-            fig2 = px.line(
-                monthly_avg, 
-                x='month', 
-                y='rating',
-                title=f"{brand_name} Monthly Average Rating Trend",
-                markers=True
-            )
-            fig2.update_layout(yaxis_range=[1, 5])
-            st.plotly_chart(fig2, use_container_width=True)
-            
-            # Source distribution
-            st.subheader("Review Sources Distribution")
-            source_counts = df['source'].value_counts()
-            fig3 = px.pie(
-                values=source_counts.values,
-                names=source_counts.index,
-                title="Where Reviews Come From"
-            )
-            st.plotly_chart(fig3, use_container_width=True)
-        
-        # Download report
-        st.markdown("---")
-        st.subheader("📥 Download Analysis Report")
-        
-        # Generate report content
-        report_content = f"""
-        BUSINESS EXPLOITATION ANALYSIS REPORT
-        =====================================
-        Brand Analyzed: {brand_name}
-        Industry: {industry}
-        Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-        
-        SUMMARY METRICS:
-        - Average Rating: {avg_rating:.2f}/5
-        - Positive Reviews: {positive_pct:.1f}%
-        - Negative Reviews: {negative_pct:.1f}%
-        - Total Reviews Analyzed: {len(df)}
+        EXECUTIVE SUMMARY:
+        - Target: {target_brand}
+        - Weaknesses Found: {negative_count}
+        - Exploitation Potential: {weakness_percent:.0f}%
+        - Recommended Attack Type: {'Price-based' if opportunities['price_attacks'] else 'Quality-based' if opportunities['product_attacks'] else 'Service-based'}
         
         KEY WEAKNESSES:
-        {chr(10).join(['- ' + w.replace('**', '') for w in insights['weaknesses'][:3]]) if insights['weaknesses'] else '- None significant'}
+        {chr(10).join(['- ' + w for w in opportunities['critical_weaknesses'][:3]])}
         
-        KEY STRENGTHS:
-        {chr(10).join(['- ' + s.replace('**', '') for s in insights['strengths'][:3]]) if insights['strengths'] else '- None highlighted'}
+        MARKETING ATTACKS:
+        {chr(10).join(['- ' + a for a in opportunities['marketing_attacks']])}
         
-        RECOMMENDED ATTACK STRATEGIES:
-        {chr(10).join(['- ' + a for a in insights['attack_opportunities'][:3]]) if insights['attack_opportunities'] else '- Differentiation recommended over direct attack'}
+        30-DAY PLAN:
+        1. Week 1-2: Awareness campaign
+        2. Week 3-4: Conversion campaign
+        3. Ongoing: Monitor competitor response
         
-        ACTION PLAN:
-        1. Address top customer complaints
-        2. Launch targeted marketing campaign
-        3. Monitor competitor responses
-        4. Measure impact monthly
+        SAMPLE AD COPY:
+        "Tired of {target_brand}'s issues? Switch to {attacker_brand} for better!"
         
-        Generated by: Dynamic Business Exploitation Analyzer
-        Capstone Project - Text Analytics
+        TARGET METRICS:
+        - Goal: Capture {weakness_percent:.0f}% of dissatisfied {target_brand} customers
+        - Timeline: 90 days
+        - Budget: Competitive advertising + Special offers
         """
         
         col1, col2 = st.columns(2)
         
         with col1:
             st.download_button(
-                label="📄 Download Text Report",
-                data=report_content,
-                file_name=f"{brand_name}_exploitation_report.txt",
-                mime="text/plain",
-                key="download_report"
+                label="📄 Download Attack Plan",
+                data=attack_doc,
+                file_name=f"Attack_Plan_{target_brand}.txt",
+                mime="text/plain"
             )
         
         with col2:
-            # Convert DataFrame to CSV for download
             csv = df.to_csv(index=False)
             st.download_button(
-                label="📊 Download Review Data (CSV)",
+                label="📊 Download Weakness Data",
                 data=csv,
-                file_name=f"{brand_name}_reviews_data.csv",
-                mime="text/csv",
-                key="download_data"
+                file_name=f"{target_brand}_Weaknesses.csv",
+                mime="text/csv"
             )
     
     else:
         # Welcome screen
-        st.markdown("## 🎯 Welcome to Dynamic Business Exploitation Analyzer")
+        st.markdown("## 🎯 How to Use This Exploitation Engine")
         
-        col1, col2 = st.columns([2, 1])
+        col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("""
-            ### How This System Works:
+            ### ⚔️ Business Exploitation Process:
             
-            1. **Enter ANY brand name** in the sidebar
-            2. **Select the industry** for context-aware analysis
-            3. **Choose analysis depth** (Quick, Detailed, Strategic)
-            4. **Click 'ANALYZE' button** above
+            1. **Select Target:** Choose competitor to attack
+            2. **Enter Your Brand:** Who is doing the attacking
+            3. **Click Attack:** Generate exploitation plan
+            4. **Execute:** Use provided strategies
             
-            ### 📊 You'll Get:
-            - Competitor weaknesses to exploit
-            - Attack strategies for market capture  
-            - Defense strategies for your brand
-            - Market gap identification
-            - Downloadable business reports
-            
-            ### 🎓 Capstone Project Value:
-            - Demonstrates REAL business application of text analytics
-            - Shows how customer reviews can be weaponized for competitive advantage
-            - Provides actionable business intelligence from unstructured data
+            ### 📊 What You Get:
+            - Competitor weakness analysis
+            - Marketing attack campaigns
+            - 30-day implementation plan
+            - Ready-to-use ad copy
+            - Downloadable attack materials
             """)
         
         with col2:
-            st.image("https://cdn-icons-png.flaticon.com/512/1534/1534938.png", width=150)
-            st.markdown("### Quick Start:")
-            st.write("1. Enter brand name")
-            st.write("2. Select industry")
-            st.write("3. Click ANALYZE button")
+            st.markdown("""
+            ### 🎓 Capstone Focus:
+            
+            **Topic:** "Exploiting business in review"
+            
+            **Meaning:** Using competitor reviews to:
+            - Find their weaknesses
+            - Create attack strategies
+            - Steal their customers
+            - Grow your market share
+            
+            **Real Example:**
+            - Analyze Samsung reviews
+            - Find battery complaints
+            - Apple attacks with "Better battery life"
+            - Samsung customers switch to Apple
+            """)
         
         st.markdown("---")
-        st.warning(f"⚠️ **Ready to analyze {brand_name}?** Click the 'ANALYZE' button above!")
+        st.warning(f"⚠️ **Ready to attack {target_brand}?** Click the ATTACK button above!")
 
 # ==================== RUN APP ====================
 if __name__ == "__main__":
@@ -629,8 +516,8 @@ if __name__ == "__main__":
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center">
-    <p><strong>🎓 Capstone Project: Text Analytics & Business Intelligence</strong></p>
-    <p><em>"Exploiting Competitive Advantage from Customer Reviews"</em></p>
-    <p>Dynamic Brand Analysis System | Works for ANY Industry | Real Business Strategies</p>
+    <p><strong>⚔️ CAPSTONE PROJECT: BUSINESS EXPLOITATION ENGINE</strong></p>
+    <p><em>"Turning Competitor Reviews into Attack Strategies"</em></p>
+    <p>Attack Intelligence | Marketing Warfare | Customer Acquisition</p>
 </div>
 """, unsafe_allow_html=True)
