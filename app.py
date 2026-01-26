@@ -4,17 +4,22 @@ import plotly.express as px
 import plotly.graph_objects as go
 from collections import Counter
 import re
-from datetime import datetime
 import numpy as np
 
 # ==================== NLP LIBRARIES ====================
 try:
-    from textblob import TextBlob
     from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
     NLP_AVAILABLE = True
 except ImportError:
     NLP_AVAILABLE = False
-    st.warning("⚠️ Install: pip install textblob vaderSentiment")
+
+# ==================== PAGE CONFIG ====================
+st.set_page_config(
+    page_title="Business Conquest",
+    page_icon="🎮",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 # ==================== CSS STYLING ====================
 st.markdown("""
@@ -34,6 +39,15 @@ st.markdown("""
         margin-bottom: 30px;
         border: 3px solid #00d4ff;
         box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    }
+    .welcome-container {
+        background: linear-gradient(135deg, rgba(106, 17, 203, 0.3), rgba(37, 117, 252, 0.3));
+        border: 3px solid #00d4ff;
+        border-radius: 20px;
+        padding: 40px;
+        margin: 50px auto;
+        max-width: 900px;
+        box-shadow: 0 10px 40px rgba(0, 212, 255, 0.3);
     }
     .level-card {
         background: rgba(255, 255, 255, 0.1);
@@ -58,7 +72,6 @@ st.markdown("""
         font-weight: bold;
         display: inline-block;
         margin-bottom: 10px;
-        font-size: 0.9em;
     }
     .stat-card {
         background: rgba(0, 0, 0, 0.3);
@@ -101,40 +114,88 @@ st.markdown("""
         border-radius: 5px;
         transition: width 0.5s ease;
     }
+    .feature-box {
+        background: rgba(0, 212, 255, 0.1);
+        border: 2px solid #00d4ff;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 15px 0;
+    }
+    .start-button {
+        background: linear-gradient(45deg, #6a11cb, #2575fc);
+        color: white;
+        padding: 15px 40px;
+        border: none;
+        border-radius: 30px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .start-button:hover {
+        transform: scale(1.1);
+        box-shadow: 0 5px 20px rgba(106, 17, 203, 0.5);
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== DATA LOADING ====================
-@st.cache_data
-def load_and_process_data():
-    try:
-        df = pd.read_csv('amazon_reviews.csv')
-        df = df.dropna(subset=['Reviews'])
-        df['Reviews'] = df['Reviews'].astype(str)
-        
-        if 'Brand Name' in df.columns:
-            df['Brand Name'] = df['Brand Name'].str.strip().str.title()
-        if 'Rating' in df.columns:
-            df['Rating'] = pd.to_numeric(df['Rating'], errors='coerce')
-        
-        return df
-    except FileNotFoundError:
-        st.error("❌ 'amazon_reviews.csv' not found! Download from Kaggle.")
-        return None
-    except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
-        return None
+# ==================== SESSION STATE INITIALIZATION ====================
+if 'page' not in st.session_state:
+    st.session_state.page = 'welcome'
+if 'player_xp' not in st.session_state:
+    st.session_state.player_xp = 0
+if 'player_level' not in st.session_state:
+    st.session_state.player_level = 1
+if 'completed_missions' not in st.session_state:
+    st.session_state.completed_missions = []
+if 'current_battle' not in st.session_state:
+    st.session_state.current_battle = None
+if 'data_loaded' not in st.session_state:
+    st.session_state.data_loaded = False
+if 'show_recommendations' not in st.session_state:
+    st.session_state.show_recommendations = False
+if 'df' not in st.session_state:
+    st.session_state.df = None
+if 'column_mapping' not in st.session_state:
+    st.session_state.column_mapping = {}
 
-# ==================== SENTIMENT ANALYSIS ====================
+# ==================== HELPER FUNCTIONS ====================
+def detect_columns(df):
+    """Auto-detect relevant columns in uploaded dataset"""
+    mapping = {}
+    
+    # Detect review text column
+    text_keywords = ['review', 'comment', 'feedback', 'text', 'description']
+    for col in df.columns:
+        if any(keyword in col.lower() for keyword in text_keywords):
+            mapping['review'] = col
+            break
+    
+    # Detect rating column
+    rating_keywords = ['rating', 'star', 'score']
+    for col in df.columns:
+        if any(keyword in col.lower() for keyword in rating_keywords):
+            mapping['rating'] = col
+            break
+    
+    # Detect brand/company column
+    brand_keywords = ['brand', 'company', 'name', 'product', 'restaurant', 'hotel']
+    for col in df.columns:
+        if any(keyword in col.lower() for keyword in brand_keywords):
+            mapping['brand'] = col
+            break
+    
+    return mapping
+
 def analyze_sentiment(text):
     if not NLP_AVAILABLE:
         return 0.0
     analyzer = SentimentIntensityAnalyzer()
-    scores = analyzer.polarity_scores(text)
+    scores = analyzer.polarity_scores(str(text))
     return scores['compound']
 
 def extract_keywords(reviews_list, top_n=10):
-    all_text = ' '.join(reviews_list).lower()
+    all_text = ' '.join([str(r) for r in reviews_list]).lower()
     stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
                   'of', 'with', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has',
                   'this', 'that', 'it', 'phone', 'product', 'very', 'good', 'bad', 'not',
@@ -145,29 +206,33 @@ def extract_keywords(reviews_list, top_n=10):
     word_freq = Counter(words)
     return word_freq.most_common(top_n)
 
-def analyze_brand_performance(df, brand_name):
-    brand_df = df[df['Brand Name'].str.contains(brand_name, case=False, na=False)]
+def analyze_brand_performance(df, brand_name, col_mapping):
+    brand_col = col_mapping['brand']
+    review_col = col_mapping['review']
+    rating_col = col_mapping['rating']
+    
+    brand_df = df[df[brand_col].str.contains(brand_name, case=False, na=False)]
     
     if len(brand_df) == 0:
         return None
     
     total_reviews = len(brand_df)
-    avg_rating = brand_df['Rating'].mean() if 'Rating' in brand_df.columns else 0
+    avg_rating = brand_df[rating_col].mean()
     
     if NLP_AVAILABLE:
-        brand_df['sentiment'] = brand_df['Reviews'].apply(analyze_sentiment)
+        brand_df['sentiment'] = brand_df[review_col].apply(analyze_sentiment)
         avg_sentiment = brand_df['sentiment'].mean()
         positive_pct = (brand_df['sentiment'] > 0.1).sum() / total_reviews * 100
         negative_pct = (brand_df['sentiment'] < -0.1).sum() / total_reviews * 100
     else:
         avg_sentiment = (avg_rating - 3) / 2
-        positive_pct = (brand_df['Rating'] >= 4).sum() / total_reviews * 100
-        negative_pct = (brand_df['Rating'] <= 2).sum() / total_reviews * 100
+        positive_pct = (brand_df[rating_col] >= 4).sum() / total_reviews * 100
+        negative_pct = (brand_df[rating_col] <= 2).sum() / total_reviews * 100
     
-    negative_reviews = brand_df[brand_df['Rating'] <= 2]['Reviews'].tolist() if 'Rating' in brand_df.columns else []
+    negative_reviews = brand_df[brand_df[rating_col] <= 2][review_col].tolist()
     complaints = extract_keywords(negative_reviews, top_n=5) if negative_reviews else []
     
-    positive_reviews = brand_df[brand_df['Rating'] >= 4]['Reviews'].tolist() if 'Rating' in brand_df.columns else []
+    positive_reviews = brand_df[brand_df[rating_col] >= 4][review_col].tolist()
     strengths = extract_keywords(positive_reviews, top_n=5) if positive_reviews else []
     
     return {
@@ -183,7 +248,6 @@ def analyze_brand_performance(df, brand_name):
         'quality_score': avg_rating * 20 if avg_rating else 0,
     }
 
-# ==================== STRATEGIC RECOMMENDATIONS ====================
 def generate_strategic_recommendations(your_analysis, competitor_analysis, your_brand, competitor_brand):
     recommendations = {
         'swot': {'strengths': [], 'weaknesses': [], 'opportunities': [], 'threats': []},
@@ -278,32 +342,71 @@ def generate_strategic_recommendations(your_analysis, competitor_analysis, your_
     
     return recommendations
 
-# ==================== SESSION STATE ====================
-if 'player_xp' not in st.session_state:
-    st.session_state.player_xp = 0
-if 'player_level' not in st.session_state:
-    st.session_state.player_level = 1
-if 'completed_missions' not in st.session_state:
-    st.session_state.completed_missions = []
-if 'current_battle' not in st.session_state:
-    st.session_state.current_battle = None
-if 'data_loaded' not in st.session_state:
-    st.session_state.data_loaded = False
-if 'show_recommendations' not in st.session_state:
-    st.session_state.show_recommendations = False
+# ==================== WELCOME PAGE ====================
+def show_welcome_page():
+    st.markdown("""
+    <div class="game-container">
+        <div class="welcome-container">
+            <h1 style="text-align: center; font-size: 3.5rem; margin-bottom: 20px;">
+                🎮 BUSINESS CONQUEST
+            </h1>
+            <h3 style="text-align: center; opacity: 0.9; margin-bottom: 40px;">
+                Exploit Customer Reviews for Strategic Advantage
+            </h3>
+            
+            <div class="feature-box">
+                <h3>🎯 What This System Does:</h3>
+                <ul style="font-size: 1.1rem; line-height: 2;">
+                    <li>📊 Analyzes customer reviews using <b>VADER Sentiment Analysis</b></li>
+                    <li>🔍 Extracts keywords from positive & negative reviews</li>
+                    <li>⚔️ Compares YOUR brand vs COMPETITOR brands</li>
+                    <li>💡 Generates strategic <b>SWOT Analysis</b> & action items</li>
+                    <li>📈 Visualizes insights with interactive charts</li>
+                </ul>
+            </div>
+            
+            <div class="feature-box">
+                <h3>📁 Supported Datasets:</h3>
+                <p style="font-size: 1.1rem; line-height: 1.8;">
+                    ✅ Amazon product reviews<br>
+                    ✅ Restaurant reviews (Zomato, Yelp, etc.)<br>
+                    ✅ Hotel reviews (TripAdvisor, Booking.com)<br>
+                    ✅ Any CSV with: <b>Reviews + Ratings + Brand/Company Name</b>
+                </p>
+            </div>
+            
+            <div class="feature-box">
+                <h3>🚀 How to Use:</h3>
+                <ol style="font-size: 1.1rem; line-height: 2;">
+                    <li>Upload your CSV file with customer reviews</li>
+                    <li>Select YOUR brand and COMPETITOR brand</li>
+                    <li>Click "Generate Strategy" to get insights</li>
+                    <li>Review SWOT analysis and action items</li>
+                    <li>Make data-driven business decisions!</li>
+                </ol>
+            </div>
+            
+            <div style="text-align: center; margin-top: 40px;">
+                <p style="font-size: 1.2rem; opacity: 0.8; margin-bottom: 20px;">
+                    Ready to dominate your market? 🏆
+                </p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🚀 START ANALYSIS", type="primary", use_container_width=True):
+            st.session_state.page = 'analysis'
+            st.rerun()
 
-# Load data
-if not st.session_state.data_loaded:
-    with st.spinner('🔄 Loading dataset...'):
-        df = load_and_process_data()
-        if df is not None:
-            st.session_state.df = df
-            st.session_state.data_loaded = True
-            st.session_state.available_brands = sorted(df['Brand Name'].unique().tolist()) if 'Brand Name' in df.columns else []
-
-# ==================== HEADER ====================
-st.markdown(f"""
-<div class="game-container">
+# ==================== ANALYSIS PAGE ====================
+def show_analysis_page():
+    st.markdown('<div class="game-container">', unsafe_allow_html=True)
+    
+    # Header
+    st.markdown(f"""
     <div class="game-header">
         <h1 style="font-size: 3rem; margin: 0;">🎮 BUSINESS CONQUEST</h1>
         <p style="font-size: 1.2rem; opacity: 0.9;">Exploit Customer Reviews for Strategic Advantage</p>
@@ -325,52 +428,102 @@ st.markdown(f"""
             <div class="progress-fill" style="width: {(st.session_state.player_xp % 1000) / 10}%"></div>
         </div>
     </div>
-""", unsafe_allow_html=True)
-
-if not st.session_state.data_loaded:
-    st.error("⚠️ Cannot proceed without data.")
-    st.stop()
-
-# ==================== TABS ====================
-tab1, tab2, tab3, tab4 = st.tabs(["🎯 MISSIONS", "⚔️ BATTLE", "📊 INSIGHTS", "🏆 ACHIEVEMENTS"])
-
-with tab1:
-    st.markdown("<h2 style='text-align: center;'>🎯 SELECT YOUR BATTLE</h2>", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
     
-    common_brands = ['Samsung', 'Apple', 'OnePlus', 'Xiaomi', 'Motorola', 'Nokia']
-    available = [b for b in common_brands if b in st.session_state.available_brands]
-    
-    if len(available) >= 2:
-        missions = [
-            {"id": 1, "title": "FLAGSHIP WAR", "target": available[0], "enemy": available[1], 
-             "xp": 100, "icon": "📱", "color": "#6a11cb"},
-            {"id": 2, "title": "BUDGET BATTLE", "target": available[2] if len(available) > 2 else available[0], 
-             "enemy": available[3] if len(available) > 3 else available[1], "xp": 150, "icon": "💰", "color": "#2575fc"}
-        ]
+    # File Upload Section
+    if not st.session_state.data_loaded:
+        st.markdown("<h2 style='text-align: center;'>📁 UPLOAD YOUR DATASET</h2>", unsafe_allow_html=True)
         
-        cols = st.columns(2)
-        for idx, m in enumerate(missions):
-            with cols[idx]:
-                completed = m["id"] in st.session_state.completed_missions
-                st.markdown(f"""
-                <div class="level-card" style="border-color: {m['color']};">
-                    <div class="level-badge">{m['icon']} • {m['xp']} XP</div>
-                    <h3>{m['title']}</h3>
-                    <p>YOUR BRAND: <b>{m['target']}</b></p>
-                    <p>COMPETITOR: <b>{m['enemy']}</b></p>
-                    {'✅ COMPLETED' if completed else ''}
-                </div>
-                """, unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("Choose a CSV file with customer reviews", type=['csv'])
+        
+        if uploaded_file is not None:
+            try:
+                df = pd.read_csv(uploaded_file)
                 
-                if not completed:
-                    if st.button(f"🚀 START", key=f"m{m['id']}"):
-                        st.session_state.current_battle = {"target": m['target'], "enemy": m['enemy'], 
-                                                          "mission_id": m['id'], "xp_reward": m['xp']}
-                        st.session_state.show_recommendations = False
+                # Auto-detect columns
+                col_mapping = detect_columns(df)
+                
+                if not all(key in col_mapping for key in ['review', 'rating', 'brand']):
+                    st.error("❌ Cannot auto-detect required columns. Please ensure your CSV has: Reviews, Ratings, and Brand/Company names")
+                    st.info(f"📋 Detected columns: {list(df.columns)}")
+                else:
+                    # Manual column selection if needed
+                    st.success(f"✅ Auto-detected columns!")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        review_col = st.selectbox("Review Text Column:", df.columns, 
+                                                 index=list(df.columns).index(col_mapping['review']))
+                    with col2:
+                        rating_col = st.selectbox("Rating Column:", df.columns,
+                                                 index=list(df.columns).index(col_mapping['rating']))
+                    with col3:
+                        brand_col = st.selectbox("Brand/Company Column:", df.columns,
+                                                index=list(df.columns).index(col_mapping['brand']))
+                    
+                    if st.button("✅ LOAD DATA", type="primary"):
+                        # Standardize column names
+                        df_processed = df.copy()
+                        df_processed = df_processed.dropna(subset=[review_col])
+                        df_processed['Reviews'] = df_processed[review_col].astype(str)
+                        df_processed['Rating'] = pd.to_numeric(df_processed[rating_col], errors='coerce')
+                        df_processed['Brand Name'] = df_processed[brand_col].str.strip().str.title()
+                        
+                        st.session_state.df = df_processed
+                        st.session_state.column_mapping = {
+                            'review': 'Reviews',
+                            'rating': 'Rating',
+                            'brand': 'Brand Name'
+                        }
+                        st.session_state.data_loaded = True
+                        st.session_state.available_brands = sorted(df_processed['Brand Name'].unique().tolist())
+                        st.success(f"🎉 Loaded {len(df_processed)} reviews from {len(st.session_state.available_brands)} brands!")
                         st.rerun()
+                        
+            except Exception as e:
+                st.error(f"❌ Error loading file: {str(e)}")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
     
-    st.markdown("<h3 style='text-align: center;'>CREATE CUSTOM BATTLE</h3>", unsafe_allow_html=True)
-    if st.session_state.available_brands:
+    # Main Tabs (only show when data is loaded)
+    tab1, tab2, tab3, tab4 = st.tabs(["🎯 MISSIONS", "⚔️ BATTLE", "📊 INSIGHTS", "🏆 ACHIEVEMENTS"])
+    
+    with tab1:
+        st.markdown("<h2 style='text-align: center;'>🎯 SELECT YOUR BATTLE</h2>", unsafe_allow_html=True)
+        
+        available = st.session_state.available_brands[:6] if len(st.session_state.available_brands) >= 2 else []
+        
+        if len(available) >= 2:
+            missions = [
+                {"id": 1, "title": "MARKET LEADER BATTLE", "target": available[0], "enemy": available[1], 
+                 "xp": 100, "icon": "🏆", "color": "#6a11cb"},
+                {"id": 2, "title": "COMPETITIVE ANALYSIS", "target": available[2] if len(available) > 2 else available[0], 
+                 "enemy": available[3] if len(available) > 3 else available[1], "xp": 150, "icon": "📊", "color": "#2575fc"}
+            ]
+            
+            cols = st.columns(2)
+            for idx, m in enumerate(missions):
+                with cols[idx]:
+                    completed = m["id"] in st.session_state.completed_missions
+                    st.markdown(f"""
+                    <div class="level-card" style="border-color: {m['color']};">
+                        <div class="level-badge">{m['icon']} • {m['xp']} XP</div>
+                        <h3>{m['title']}</h3>
+                        <p>YOUR BRAND: <b>{m['target']}</b></p>
+                        <p>COMPETITOR: <b>{m['enemy']}</b></p>
+                        {'✅ COMPLETED' if completed else ''}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if not completed:
+                        if st.button(f"🚀 START", key=f"m{m['id']}"):
+                            st.session_state.current_battle = {"target": m['target'], "enemy": m['enemy'], 
+                                                              "mission_id": m['id'], "xp_reward": m['xp']}
+                            st.session_state.show_recommendations = False
+                            st.rerun()
+        
+        st.markdown("<h3 style='text-align: center;'>CREATE CUSTOM BATTLE</h3>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
             target = st.selectbox("Your Brand:", st.session_state.available_brands)
@@ -382,395 +535,314 @@ with tab1:
                                               "is_custom": True, "xp_reward": 75}
             st.session_state.show_recommendations = False
             st.rerun()
-
-with tab2:
-    if st.session_state.current_battle:
-        battle = st.session_state.current_battle
-        
-        st.markdown(f"""
-        <div class="battle-arena">
-            <h2 style='text-align: center;'>⚔️ COMPETITIVE ANALYSIS</h2>
-            <div style='text-align: center; font-size: 1.5rem; margin: 20px 0;'>
-                <span style='color: #00d4ff;'>{battle['target']}</span> 
-                <span style='margin: 0 20px;'>VS</span>
-                <span style='color: #ff0080;'>{battle['enemy']}</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.spinner('🔍 Analyzing reviews...'):
-            your_data = analyze_brand_performance(st.session_state.df, battle['target'])
-            comp_data = analyze_brand_performance(st.session_state.df, battle['enemy'])
-        
-        if your_data and comp_data:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown(f"<h3 style='text-align: center;'>🎯 {battle['target']}</h3>", unsafe_allow_html=True)
-                
-                for name, val in [("Satisfaction", int(your_data['customer_satisfaction'])),
-                                 ("Quality", int(your_data['quality_score'])),
-                                 ("Positive %", int(your_data['positive_pct']))]:
-                    st.markdown(f"""
-                    <div class="stat-card">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span>{name}</span><span style="color: #00d4ff;">{val}%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: {val}%"></div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("<h4>💪 Strengths:</h4>", unsafe_allow_html=True)
-                for kw, cnt in your_data['strengths'][:3]:
-                    st.markdown(f"<div class='stat-card'>✅ {kw} ({cnt})</div>", unsafe_allow_html=True)
-                
-                st.markdown("<h4>⚠️ Complaints:</h4>", unsafe_allow_html=True)
-                for kw, cnt in your_data['complaints'][:3]:
-                    st.markdown(f"<div class='stat-card'>❌ {kw} ({cnt})</div>", unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown(f"<h3 style='text-align: center;'>🎯 {battle['enemy']}</h3>", unsafe_allow_html=True)
-                
-                for name, val in [("Satisfaction", int(comp_data['customer_satisfaction'])),
-                                 ("Quality", int(comp_data['quality_score'])),
-                                 ("Negative %", int(comp_data['negative_pct']))]:
-                    st.markdown(f"""
-                    <div class="stat-card" style="border-color: #ff0080;">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span>{name}</span><span style="color: #ff0080;">{val}%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: {val}%; background: #ff0080;"></div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("<h4>💪 Their Strengths:</h4>", unsafe_allow_html=True)
-                for kw, cnt in comp_data['strengths'][:3]:
-                    st.markdown(f"<div class='stat-card' style='border-color: #ff0080;'>✅ {kw} ({cnt})</div>", unsafe_allow_html=True)
-                
-                st.markdown("<h4>🔍 Their Weaknesses:</h4>", unsafe_allow_html=True)
-                for kw, cnt in comp_data['complaints'][:3]:
-                    st.markdown(f"<div class='stat-card'>❌ {kw} ({cnt})</div>", unsafe_allow_html=True)
-            
-            # Win probability
-            your_score = your_data['customer_satisfaction'] + your_data['quality_score']
-            comp_score = comp_data['customer_satisfaction'] + comp_data['quality_score']
-            win_pct = int((your_score / (your_score + comp_score)) * 100) if (your_score + comp_score) > 0 else 50
+    
+    with tab2:
+        if st.session_state.current_battle:
+            battle = st.session_state.current_battle
             
             st.markdown(f"""
-            <div class="stat-card" style="border-color: gold; text-align: center;">
-                <h3>📊 MARKET POSITION</h3>
-                <div style="font-size: 1.5rem; color: gold;">
-                    Competitive Advantage: {win_pct}%
+            <div class="battle-arena">
+                <h2 style='text-align: center;'>⚔️ COMPETITIVE ANALYSIS</h2>
+                <div style='text-align: center; font-size: 1.5rem; margin: 20px 0;'>
+                    <span style='color: #00d4ff;'>{battle['target']}</span> 
+                    <span style='margin: 0 20px;'>VS</span>
+                    <span style='color: #ff0080;'>{battle['enemy']}</span>
                 </div>
-                <p style="font-size: 0.9rem; opacity: 0.8;">
-                    {your_data['total_reviews']} reviews analyzed for {battle['target']}<br>
-                    {comp_data['total_reviews']} reviews for {battle['enemy']}
-                </p>
             </div>
             """, unsafe_allow_html=True)
             
-            # RECOMMENDATIONS
-            if st.session_state.show_recommendations:
-                recs = st.session_state.recommendations
-                
-                st.markdown("<br><h2 style='text-align: center;'>💡 STRATEGIC RECOMMENDATIONS</h2>", unsafe_allow_html=True)
-                
-                # SWOT
-                st.markdown("<div class='recommendation-card'>", unsafe_allow_html=True)
-                st.markdown("<h3>📊 SWOT ANALYSIS</h3>", unsafe_allow_html=True)
-                
+            with st.spinner('🔍 Analyzing reviews...'):
+                your_data = analyze_brand_performance(st.session_state.df, battle['target'], st.session_state.column_mapping)
+                comp_data = analyze_brand_performance(st.session_state.df, battle['enemy'], st.session_state.column_mapping)
+            
+            if your_data and comp_data:
                 col1, col2 = st.columns(2)
+                
                 with col1:
-                    st.markdown("<h4 style='color: #00d4ff;'>💪 STRENGTHS</h4>", unsafe_allow_html=True)
-                    for s in recs['swot']['strengths']:
-                        st.markdown(f"<div class='action-item'>✅ {s}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='text-align: center;'>🎯 {battle['target']}</h3>", unsafe_allow_html=True)
                     
-                    st.markdown("<h4 style='color: #ff8c00;'>⚠️ WEAKNESSES</h4>", unsafe_allow_html=True)
-                    for w in recs['swot']['weaknesses']:
-                        st.markdown(f"<div class='action-item' style='border-color: #ff8c00;'>❌ {w}</div>", unsafe_allow_html=True)
+                    for name, val in [("Satisfaction", int(your_data['customer_satisfaction'])),
+                                     ("Quality", int(your_data['quality_score'])),
+                                     ("Positive %", int(your_data['positive_pct']))]:
+                        st.markdown(f"""
+                        <div class="stat-card">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>{name}</span><span style="color: #00d4ff;">{val}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {val}%"></div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("<h4>💪 Strengths:</h4>", unsafe_allow_html=True)
+                    for kw, cnt in your_data['strengths'][:3]:
+                        st.markdown(f"<div class='stat-card'>✅ {kw} ({cnt})</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("<h4>⚠️ Complaints:</h4>", unsafe_allow_html=True)
+                    for kw, cnt in your_data['complaints'][:3]:
+                        st.markdown(f"<div class='stat-card'>❌ {kw} ({cnt})</div>", unsafe_allow_html=True)
                 
                 with col2:
-                    st.markdown("<h4 style='color: #00b09b;'>🎯 OPPORTUNITIES</h4>", unsafe_allow_html=True)
-                    for o in recs['swot']['opportunities']:
-                        st.markdown(f"<div class='action-item' style='border-color: #00b09b;'>💡 {o}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='text-align: center;'>🎯 {battle['enemy']}</h3>", unsafe_allow_html=True)
                     
-                    st.markdown("<h4 style='color: #ff0080;'>🚨 THREATS</h4>", unsafe_allow_html=True)
-                    for t in recs['swot']['threats']:
-                        st.markdown(f"<div class='action-item' style='border-color: #ff0080;'>⚠️ {t}</div>", unsafe_allow_html=True)
+                    for name, val in [("Satisfaction", int(comp_data['customer_satisfaction'])),
+                                     ("Quality", int(comp_data['quality_score'])),
+                                     ("Negative %", int(comp_data['negative_pct']))]:
+                        st.markdown(f"""
+                        <div class="stat-card" style="border-color: #ff0080;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>{name}</span><span style="color: #ff0080;">{val}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {val}%; background: #ff0080;"></div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("<h4>💪 Their Strengths:</h4>", unsafe_allow_html=True)
+                    for kw, cnt in comp_data['strengths'][:3]:
+                        st.markdown(f"<div class='stat-card' style='border-color: #ff0080;'>✅ {kw} ({cnt})</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("<h4>🔍 Their Weaknesses:</h4>", unsafe_allow_html=True)
+                   for kw, cnt in comp_data['complaints'][:3]:
+st.markdown(f"<div class='stat-card'>❌ {kw} ({cnt})</div>", unsafe_allow_html=True)
+                # Win probability
+                your_score = your_data['customer_satisfaction'] + your_data['quality_score']
+                comp_score = comp_data['customer_satisfaction'] + comp_data['quality_score']
+                win_pct = int((your_score / (your_score + comp_score)) * 100) if (your_score + comp_score) > 0 else 50
                 
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="stat-card" style="border-color: gold; text-align: center;">
+                    <h3>📊 MARKET POSITION</h3>
+                    <div style="font-size: 1.5rem; color: gold;">
+                        Competitive Advantage: {win_pct}%
+                    </div>
+                    <p style="font-size: 0.9rem; opacity: 0.8;">
+                        {your_data['total_reviews']} reviews analyzed for {battle['target']}<br>
+                        {comp_data['total_reviews']} reviews for {battle['enemy']}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                # ACTION ITEMS
-                st.markdown("<div class='recommendation-card'>", unsafe_allow_html=True)
-                st.markdown("<h3>🎯 IMMEDIATE ACTION ITEMS</h3>", unsafe_allow_html=True)
-                for idx, action in enumerate(recs['action_items'][:5], 1):
-                    st.markdown(f"<div class='action-item'><b>{idx}.</b> {action}</div>", unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-                
-                # COMPETITIVE ADVANTAGES
-                if recs['competitive_advantages']:
+                # RECOMMENDATIONS
+                if st.session_state.show_recommendations:
+                    recs = st.session_state.recommendations
+                    
+                    st.markdown("<br><h2 style='text-align: center;'>💡 STRATEGIC RECOMMENDATIONS</h2>", unsafe_allow_html=True)
+                    
+                    # SWOT
                     st.markdown("<div class='recommendation-card'>", unsafe_allow_html=True)
-                    st.markdown("<h3>⚡ COMPETITIVE ADVANTAGES</h3>", unsafe_allow_html=True)
-                    for adv in recs['competitive_advantages']:
-                        st.markdown(f"<div class='action-item' style='border-color: gold;'>🏆 {adv}</div>", unsafe_allow_html=True)
+                    st.markdown("<h3>📊 SWOT ANALYSIS</h3>", unsafe_allow_html=True)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("<h4 style='color: #00d4ff;'>💪 STRENGTHS</h4>", unsafe_allow_html=True)
+                        for s in recs['swot']['strengths']:
+                            st.markdown(f"<div class='action-item'>✅ {s}</div>", unsafe_allow_html=True)
+                        
+                        st.markdown("<h4 style='color: #ff8c00;'>⚠️ WEAKNESSES</h4>", unsafe_allow_html=True)
+                        for w in recs['swot']['weaknesses']:
+                            st.markdown(f"<div class='action-item' style='border-color: #ff8c00;'>❌ {w}</div>", unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown("<h4 style='color: #00b09b;'>🎯 OPPORTUNITIES</h4>", unsafe_allow_html=True)
+                        for o in recs['swot']['opportunities']:
+                            st.markdown(f"<div class='action-item' style='border-color: #00b09b;'>💡 {o}</div>", unsafe_allow_html=True)
+                        
+                        st.markdown("<h4 style='color: #ff0080;'>🚨 THREATS</h4>", unsafe_allow_html=True)
+                        for t in recs['swot']['threats']:
+                            st.markdown(f"<div class='action-item' style='border-color: #ff0080;'>⚠️ {t}</div>", unsafe_allow_html=True)
+                    
                     st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    # ACTION ITEMS
+                    st.markdown("<div class='recommendation-card'>", unsafe_allow_html=True)
+                    st.markdown("<h3>🎯 IMMEDIATE ACTION ITEMS</h3>", unsafe_allow_html=True)
+                    for idx, action in enumerate(recs['action_items'][:5], 1):
+                        st.markdown(f"<div class='action-item'><b>{idx}.</b> {action}</div>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    # COMPETITIVE ADVANTAGES
+                    if recs['competitive_advantages']:
+                        st.markdown("<div class='recommendation-card'>", unsafe_allow_html=True)
+                        st.markdown("<h3>⚡ COMPETITIVE ADVANTAGES</h3>", unsafe_allow_html=True)
+                        for adv in recs['competitive_advantages']:
+                            st.markdown(f"<div class='action-item' style='border-color: gold;'>🏆 {adv}</div>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    # Complete mission button
+                    if st.button("✅ COMPLETE MISSION & EARN XP", type="primary", use_container_width=True):
+                        xp = battle['xp_reward']
+                        st.session_state.player_xp += xp
+                        
+                        if not battle.get("is_custom") and battle.get('mission_id') not in st.session_state.completed_missions:
+                            st.session_state.completed_missions.append(battle['mission_id'])
+                        
+                        if st.session_state.player_xp >= st.session_state.player_level * 1000:
+                            st.session_state.player_level += 1
+                            st.balloons()
+                        
+                        st.success(f"🎉 Mission Complete! +{xp} XP")
+                        st.session_state.current_battle = None
+                        st.session_state.show_recommendations = False
+                        st.rerun()
                 
-                # Complete mission button
-                if st.button("✅ COMPLETE MISSION & EARN XP", type="primary", use_container_width=True):
-                    xp = battle['xp_reward']
-                    st.session_state.player_xp += xp
-                    
-                    if not battle.get("is_custom") and battle.get('mission_id') not in st.session_state.completed_missions:
-                        st.session_state.completed_missions.append(battle['mission_id'])
-                    
-                    if st.session_state.player_xp >= st.session_state.player_level * 1000:
-                        st.session_state.player_level += 1
-                        st.balloons()
-                    
-                    st.success(f"🎉 Mission Complete! +{xp} XP")
-                    st.session_state.current_battle = None
-                    st.session_state.show_recommendations = False
-                    st.rerun()
+                else:
+                    # Generate recommendations button
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💡 GENERATE STRATEGY", type="primary", use_container_width=True):
+                            st.session_state.show_recommendations = True
+                            st.session_state.recommendations = generate_strategic_recommendations(
+                                your_data, comp_data, battle['target'], battle['enemy']
+                            )
+                            st.rerun()
+                    with col2:
+                        if st.button("🏁 END BATTLE", use_container_width=True):
+                            st.session_state.current_battle = None
+                            st.rerun()
             
             else:
-                # Generate recommendations button
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("💡 GENERATE STRATEGY", type="primary", use_container_width=True):
-                        st.session_state.show_recommendations = True
-                        st.session_state.recommendations = generate_strategic_recommendations(
-                            your_data, comp_data, battle['target'], battle['enemy']
-                        )
-                        st.rerun()
-                with col2:
-                    if st.button("🏁 END BATTLE", use_container_width=True):
-                        st.session_state.current_battle = None
-                        st.rerun()
+                st.error("❌ Insufficient data for analysis")
         
         else:
-            st.error("❌ Insufficient data for analysis")
-    
-    else:
-        st.markdown("""
-        <div style="text-align: center; padding: 50px;">
-            <div style="font-size: 4rem;">⚔️</div>
-            <h2>NO ACTIVE BATTLE</h2>
-            <p style="opacity: 0.7;">Select a mission from the Missions tab!</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-with tab3:
-    st.markdown("<h2 style='text-align: center;'>📊 BUSINESS INTELLIGENCE</h2>", unsafe_allow_html=True)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    total_reviews = len(st.session_state.df)
-    total_brands = len(st.session_state.available_brands)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div style="font-size: 0.9em; opacity: 0.7;">TOTAL REVIEWS</div>
-            <div style="font-size: 2em; color: #00d4ff;">{total_reviews:,}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div style="font-size: 0.9em; opacity: 0.7;">BRANDS</div>
-            <div style="font-size: 2em; color: #00b09b;">{total_brands}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div style="font-size: 0.9em; opacity: 0.7;">MISSIONS DONE</div>
-            <div style="font-size: 2em; color: #ff0080;">{len(st.session_state.completed_missions)}</div>                                                                                                                         
-</div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div style="font-size: 0.9em; opacity: 0.7;">SUCCESS RATE</div>
-            <div style="font-size: 2em; color: gold;">
-                {min(100, len(st.session_state.completed_missions) * 20)}%
+            st.markdown("""
+            <div style="text-align: center; padding: 50px;">
+                <div style="font-size: 4rem;">⚔️</div>
+                <h2>NO ACTIVE BATTLE</h2>
+                <p style="opacity: 0.7;">Select a mission from the Missions tab!</p>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
     
-    # Brand Performance Chart
-    st.markdown("<br><h3>📊 Top Brands Comparison</h3>", unsafe_allow_html=True)
-    
-    top_brands = st.session_state.df['Brand Name'].value_counts().head(5)
-    brand_perf = []
-    
-    for brand in top_brands.index:
-        analysis = analyze_brand_performance(st.session_state.df, brand)
-        if analysis:
-            brand_perf.append({
-                'Brand': brand,
-                'Avg Rating': analysis['avg_rating'],
-                'Reviews': analysis['total_reviews'],
-                'Satisfaction': analysis['customer_satisfaction']
-            })
-    
-    if brand_perf:
-        perf_df = pd.DataFrame(brand_perf)
+    with tab3:
+        st.markdown("<h2 style='text-align: center;'>📊 BUSINESS INTELLIGENCE</h2>", unsafe_allow_html=True)
         
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=perf_df['Brand'],
-            y=perf_df['Avg Rating'],
-            name='Average Rating',
-            marker_color='#00d4ff',
-            text=perf_df['Avg Rating'].round(2),
-            textposition='auto'
-        ))
+        col1, col2, col3, col4 = st.columns(4)
+        total_reviews = len(st.session_state.df)
+        total_brands = len(st.session_state.available_brands)
         
-        fig.update_layout(
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            font_color="white",
-            title_font_color="white",
-            xaxis_title="Brand",
-            yaxis_title="Average Rating (out of 5)",
-            showlegend=False,
-            height=400
-        )
+        with col1:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div style="font-size: 0.9em; opacity: 0.7;">TOTAL REVIEWS</div>
+                <div style="font-size: 2em; color: #00d4ff;">{total_reviews:,}</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div style="font-size: 0.9em; opacity: 0.7;">BRANDS</div>
+                <div style="font-size: 2em; color: #00b09b;">{total_brands}</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Sentiment Distribution
-        st.markdown("<br><h3>😊 Sentiment Distribution</h3>", unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div style="font-size: 0.9em; opacity: 0.7;">MISSIONS DONE</div>
+                <div style="font-size: 2em; color: #ff0080;">{len(st.session_state.completed_missions)}</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        sentiment_data = []
-        for brand in top_brands.index[:3]:
-            analysis = analyze_brand_performance(st.session_state.df, brand)
+        with col4:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div style="font-size: 0.9em; opacity: 0.7;">SUCCESS RATE</div>
+                <div style="font-size: 2em; color: gold;">
+                    {min(100, len(st.session_state.completed_missions) * 20)}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Brand Performance Chart
+        st.markdown("<br><h3>📊 Top Brands Comparison</h3>", unsafe_allow_html=True)
+        
+        top_brands = st.session_state.df['Brand Name'].value_counts().head(5)
+        brand_perf = []
+        
+        for brand in top_brands.index:
+            analysis = analyze_brand_performance(st.session_state.df, brand, st.session_state.column_mapping)
             if analysis:
-                sentiment_data.append({
+                brand_perf.append({
                     'Brand': brand,
-                    'Positive': analysis['positive_pct'],
-                    'Neutral': analysis['neutral_pct'],
-                    'Negative': analysis['negative_pct']
+                    'Avg Rating': analysis['avg_rating'],
+                    'Reviews': analysis['total_reviews'],
+                    'Satisfaction': analysis['customer_satisfaction']
                 })
         
-        if sentiment_data:
-            sent_df = pd.DataFrame(sentiment_data)
+        if brand_perf:
+            perf_df = pd.DataFrame(brand_perf)
             
-            fig2 = go.Figure()
-            fig2.add_trace(go.Bar(name='Positive', x=sent_df['Brand'], y=sent_df['Positive'], marker_color='#00d4ff'))
-            fig2.add_trace(go.Bar(name='Neutral', x=sent_df['Brand'], y=sent_df['Neutral'], marker_color='#ff8c00'))
-            fig2.add_trace(go.Bar(name='Negative', x=sent_df['Brand'], y=sent_df['Negative'], marker_color='#ff0080'))
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=perf_df['Brand'],
+                y=perf_df['Avg Rating'],
+                name='Average Rating',
+                marker_color='#00d4ff',
+                text=perf_df['Avg Rating'].round(2),
+                textposition='auto'
+            ))
             
-            fig2.update_layout(
-                barmode='stack',
+            fig.update_layout(
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
                 font_color="white",
-                title_font_color="white",
                 xaxis_title="Brand",
-                yaxis_title="Percentage (%)",
+                yaxis_title="Average Rating",
+                showlegend=False,
                 height=400
             )
             
-            st.plotly_chart(fig2, use_container_width=True)
-
-with tab4:
-    st.markdown("<h2 style='text-align: center;'>🏆 ACHIEVEMENTS</h2>", unsafe_allow_html=True)
+            st.plotly_chart(fig, use_container_width=True)
     
-    achievements = [
-        {
-            "name": "Data Explorer",
-            "desc": "Successfully loaded dataset",
-            "earned": st.session_state.data_loaded,
-            "reward": "🎖️"
-        },
-        {
-            "name": "First Victory",
-            "desc": "Complete your first analysis",
-            "earned": len(st.session_state.completed_missions) > 0,
-            "reward": "🏆"
-        },
-        {
-            "name": "Strategic Thinker",
-            "desc": "Complete 3 missions",
-            "earned": len(st.session_state.completed_missions) >= 3,
-            "reward": "⭐"
-        },
-        {
-            "name": "XP Hunter",
-            "desc": "Earn 500 XP",
-            "earned": st.session_state.player_xp >= 500,
-            "reward": "💰"
-        },
-        {
-            "name": "Master Analyst",
-            "desc": "Reach Level 3",
-            "earned": st.session_state.player_level >= 3,
-            "reward": "👑"
-        },
-        {
-            "name": "Competitive Genius",
-            "desc": "Complete 5 missions",
-            "earned": len(st.session_state.completed_missions) >= 5,
-            "reward": "⚔️"
-        }
-    ]
-    
-    cols = st.columns(3)
-    for idx, achievement in enumerate(achievements):
-        with cols[idx % 3]:
-            earned_style = "border-color: gold; background: rgba(255,215,0,0.1);" if achievement["earned"] else "opacity: 0.5;"
-            
-            st.markdown(f"""
-            <div class="level-card" style="{earned_style}">
-                <div style="font-size: 2.5rem;">{achievement['reward']}</div>
-                <h4 style="margin: 10px 0;">{achievement['name']}</h4>
-                <p style="font-size: 0.9em; opacity: 0.8;">{achievement['desc']}</p>
-                <div style="margin-top: 10px; font-weight: bold;">
-                    {"✅ EARNED" if achievement['earned'] else "🔒 LOCKED"}
+    with tab4:
+        st.markdown("<h2 style='text-align: center;'>🏆 ACHIEVEMENTS</h2>", unsafe_allow_html=True)
+        
+        achievements = [
+            {"name": "Data Explorer", "desc": "Successfully loaded dataset", 
+             "earned": st.session_state.data_loaded, "reward": "🎖️"},
+            {"name": "First Victory", "desc": "Complete your first analysis", 
+             "earned": len(st.session_state.completed_missions) > 0, "reward": "🏆"},
+            {"name": "Strategic Thinker", "desc": "Complete 3 missions", 
+             "earned": len(st.session_state.completed_missions) >= 3, "reward": "⭐"},
+            {"name": "XP Hunter", "desc": "Earn 500 XP", 
+             "earned": st.session_state.player_xp >= 500, "reward": "💰"},
+            {"name": "Master Analyst", "desc": "Reach Level 3", 
+             "earned": st.session_state.player_level >= 3, "reward": "👑"},
+            {"name": "Competitive Genius", "desc": "Complete 5 missions", 
+             "earned": len(st.session_state.completed_missions) >= 5, "reward": "⚔️"}
+        ]
+        
+        cols = st.columns(3)
+        for idx, achievement in enumerate(achievements):
+            with cols[idx % 3]:
+                earned_style = "border-color: gold; background: rgba(255,215,0,0.1);" if achievement["earned"] else "opacity: 0.5;"
+                
+                st.markdown(f"""
+                <div class="level-card" style="{earned_style}">
+                    <div style="font-size: 2.5rem;">{achievement['reward']}</div>
+                    <h4 style="margin: 10px 0;">{achievement['name']}</h4>
+                    <p style="font-size: 0.9em; opacity: 0.8;">{achievement['desc']}</p>
+                    <div style="margin-top: 10px; font-weight: bold;">
+                        {"✅ EARNED" if achievement['earned'] else "🔒 LOCKED"}
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
     
-    # Progress to next rewards
-    st.markdown("<br><h3 style='text-align: center;'>🎁 NEXT REWARDS</h3>", unsafe_allow_html=True)
-    
-    next_rewards = [
-        {"level": 2, "reward": "Unlock Advanced Analytics", 
-         "progress": min(100, (st.session_state.player_xp / 2000) * 100)},
-        {"level": 3, "reward": "Export Report Feature", 
-         "progress": min(100, (st.session_state.player_xp / 3000) * 100)},
-        {"level": 5, "reward": "AI-Powered Insights", 
-         "progress": min(100, (st.session_state.player_xp / 5000) * 100)}
-    ]
-    
-    for reward in next_rewards:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                <span><b>Level {reward['level']}:</b> {reward['reward']}</span>
-                <span>{reward['progress']:.0f}%</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {reward['progress']}%"></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ==================== MAIN APP ROUTER ====================
+if st.session_state.page == 'welcome':
+    show_welcome_page()
+else:
+    show_analysis_page()
 
 # ==================== FOOTER ====================
 st.markdown("""
-<br><br>
-<div style="text-align: center; opacity: 0.7; font-size: 0.9em; padding-bottom: 30px;">
-    <p>🎮 BUSINESS CONQUEST v2.0</p>
-    <p>Capstone Project: Exploiting Business Insights from Customer Reviews</p>
+<div style="text-align: center; opacity: 0.7; font-size: 0.9em; padding: 20px;">
+    <p>🎮 BUSINESS CONQUEST v2.0 | Capstone Project: Exploiting Business Insights from Customer Reviews</p>
     <p>Powered by VADER Sentiment Analysis & NLP</p>
-</div>
 </div>
 """, unsafe_allow_html=True)
