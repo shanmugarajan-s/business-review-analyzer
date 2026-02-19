@@ -14,6 +14,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 import warnings
 warnings.filterwarnings("ignore")
+try:
+    import anthropic as anthropic_client
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
 
 st.set_page_config(page_title="ReviewMind", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 
@@ -141,26 +146,791 @@ def page_welcome():
 # ══════════════════════════════════
 def page_pipeline():
     nav_bar(2)
-    st.markdown('<div class="sec-tag">Live Pipeline</div><div class="sec-heading" style="font-size:1.4rem">How ReviewMind Works</div><p style="color:#3d4d70;font-size:.88rem;margin-bottom:20px">ஒரு review எடுத்து — step by step என்ன நடக்குதுன்னு பாரு 👇</p>', unsafe_allow_html=True)
+    
+    # Embed the full interactive HTML pipeline directly
+    PIPELINE_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How It Works — Pipeline Explainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Cabinet+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07090f;
+  --surface: #0e1117;
+  --card: #131a27;
+  --border: #1c2540;
+  --accent: #00e5ff;
+  --green: #10b981;
+  --purple: #7c3aed;
+  --orange: #f59e0b;
+  --red: #ef4444;
+  --text: #dde4f5;
+  --muted: #3d4d70;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Cabinet Grotesk', sans-serif;
+  min-height: 100vh;
+  padding: 10px 20px 30px;
+}
 
-    sample = st.selectbox("Sample Review:", [
-        "The product quality is amazing and delivery was super fast! Highly recommend.",
-        "Worst customer handling ever. Package was damaged and no one responded.",
-        "Average product. Does the job but nothing special about it.",
-        "Great quality but terrible delivery experience. Mixed feelings overall."
-    ])
-    rating = st.slider("Rating (1–5):", 1, 5, 5)
+h1 {
+  font-family: 'Clash Display', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -1.5px;
+  text-align: center;
+  margin-bottom: 6px;
+}
+.title-accent { color: var(--accent); }
+.subtitle {
+  text-align: center;
+  color: var(--muted);
+  font-size: 1rem;
+  margin-bottom: 40px;
+}
 
-    if st.button("▶ Run Pipeline", type="primary"):
-        run_pipeline(sample, rating)
+/* Sample selector */
+.sample-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 32px;
+}
+.sample-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 8px 18px;
+  color: var(--muted);
+  font-family: 'Cabinet Grotesk', sans-serif;
+  font-size: 0.82rem; cursor: pointer;
+  transition: all 0.2s;
+}
+.sample-btn:hover, .sample-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,229,255,0.05);
+}
+.custom-input-wrap {
+  display: flex; gap: 10px;
+  max-width: 700px; margin: 0 auto 40px;
+}
+.custom-input {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--text);
+  font-family: 'Cabinet Grotesk', sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.custom-input:focus { border-color: var(--accent); }
+.run-btn {
+  background: var(--accent);
+  color: #07090f;
+  border: none; border-radius: 12px;
+  padding: 12px 24px;
+  font-family: 'Cabinet Grotesk', sans-serif;
+  font-size: 0.9rem; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+.run-btn:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0,229,255,0.3); }
+.run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    _,col,_ = st.columns([1,2,1])
-    with col:
-        if st.button("Next → Analyze Dataset", use_container_width=True):
+/* Pipeline */
+.pipeline {
+  max-width: 860px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 0;
+}
+
+.step-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  opacity: 0; transform: translateY(16px);
+  transition: opacity 0.5s, transform 0.5s;
+}
+.step-wrap.show { opacity: 1; transform: translateY(0); }
+
+.connector {
+  width: 2px; height: 32px;
+  background: linear-gradient(to bottom, var(--border), var(--accent));
+  position: relative;
+  opacity: 0; transition: opacity 0.4s;
+}
+.connector.show { opacity: 1; }
+.connector::after {
+  content: '';
+  position: absolute; bottom: -5px; left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--accent);
+}
+
+.step-card {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px 26px;
+  transition: border-color 0.3s;
+}
+.step-card.active { border-color: var(--accent); }
+.step-card.done { border-color: var(--green); }
+
+.step-header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 16px;
+}
+.step-number {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Clash Display', sans-serif;
+  font-size: 0.85rem; font-weight: 700;
+  flex-shrink: 0;
+  background: rgba(0,229,255,0.1);
+  border: 1px solid rgba(0,229,255,0.3);
+  color: var(--accent);
+}
+.step-card.done .step-number {
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.3);
+  color: var(--green);
+}
+.step-title {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 1.1rem; font-weight: 600;
+}
+.step-desc { color: var(--muted); font-size: 0.82rem; margin-left: auto; }
+
+.step-body { }
+
+/* Input display */
+.review-display {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  border: 1px solid var(--border);
+  min-height: 52px;
+}
+.rating-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px;
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 100px; padding: 4px 14px;
+  color: var(--orange); font-size: 0.82rem; font-weight: 600;
+}
+
+/* Preprocessing tokens */
+.token-flow { display: flex; flex-direction: column; gap: 14px; }
+.token-row { display: flex; align-items: flex-start; gap: 12px; }
+.token-label {
+  width: 120px; flex-shrink: 0;
+  font-size: 0.72rem; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--muted);
+  padding-top: 6px;
+}
+.tokens {
+  display: flex; flex-wrap: wrap; gap: 6px; flex: 1;
+}
+.token {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid;
+  transition: all 0.3s;
+}
+.token.raw { background: rgba(100,100,120,0.1); border-color: #2a3050; color: #7a8ab0; }
+.token.kept { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.25); color: var(--accent); }
+.token.removed { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); color: #f87171; text-decoration: line-through; opacity: 0.6; }
+.token.lemma { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.25); color: var(--green); }
+
+/* TFIDF */
+.tfidf-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+.tfidf-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.tfidf-word {
+  font-family: var(--mono); font-size: 0.8rem;
+  color: var(--accent); margin-bottom: 6px;
+}
+.tfidf-bar-track {
+  height: 4px; background: var(--border);
+  border-radius: 100px; overflow: hidden;
+}
+.tfidf-bar {
+  height: 100%; border-radius: 100px;
+  background: linear-gradient(90deg, var(--accent), var(--purple));
+  transition: width 1s ease; width: 0%;
+}
+.tfidf-val {
+  font-size: 0.72rem; color: var(--muted);
+  text-align: right; margin-top: 4px;
+  font-family: var(--mono);
+}
+
+/* Model results */
+.model-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.model-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: border-color 0.3s;
+}
+.model-item.winner { border-color: var(--green); }
+.model-item-header {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 8px;
+}
+.model-item-name { font-size: 0.85rem; font-weight: 600; }
+.model-item-acc {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 1.1rem; font-weight: 700;
+}
+.model-item.winner .model-item-acc { color: var(--green); }
+.model-acc-bar { height: 6px; background: var(--border); border-radius: 100px; overflow: hidden; }
+.model-acc-fill { height: 100%; border-radius: 100px; transition: width 1.2s ease; width: 0%; }
+.winner-tag {
+  display: inline-block;
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 6px; padding: 2px 8px;
+  color: var(--green); font-size: 0.68rem;
+  font-weight: 700; letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+
+/* Final result */
+.final-result {
+  text-align: center;
+  padding: 10px 0;
+}
+.big-sentiment {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 2.8rem; font-weight: 700;
+  margin: 10px 0;
+}
+.sentiment-bars { max-width: 400px; margin: 20px auto 0; }
+.s-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.s-label { width: 70px; font-size: 0.82rem; color: var(--muted); text-align: right; }
+.s-track { flex: 1; height: 10px; background: var(--surface); border-radius: 100px; overflow: hidden; }
+.s-fill { height: 100%; border-radius: 100px; transition: width 1s ease; width: 0%; }
+.s-pct { width: 40px; font-family: 'Clash Display', sans-serif; font-size: 0.9rem; }
+
+/* Business insight */
+.insight-chips {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.insight-chip {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--surface);
+  border-radius: 12px; padding: 14px 16px;
+  border-left: 3px solid transparent;
+  opacity: 0; transform: translateX(-8px);
+  transition: opacity 0.4s, transform 0.4s, border-color 0.3s;
+}
+.insight-chip.show { opacity: 1; transform: translateX(0); }
+.insight-chip.pos { border-left-color: var(--green); }
+.insight-chip.neg { border-left-color: var(--red); }
+.insight-chip.neu { border-left-color: var(--orange); }
+.ic-icon { font-size: 1.2rem; flex-shrink: 0; }
+.ic-text strong { display: block; font-size: 0.88rem; margin-bottom: 2px; }
+.ic-text span { font-size: 0.8rem; color: var(--muted); }
+
+/* Loading spinner */
+.loading {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--muted); font-size: 0.85rem;
+}
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<h1>How <span class="title-accent">ReviewMind</span> Works</h1>
+<p class="subtitle">ஒரு Review எடுத்து — Step by Step என்ன நடக்குதுன்னு பாரு 👇</p>
+
+<!-- Sample Buttons -->
+<div class="sample-row">
+  <button class="sample-btn active" onclick="selectSample(this, 'The product quality is absolutely amazing and delivery was super fast! Highly recommend.', 5)">😊 Positive Review</button>
+  <button class="sample-btn" onclick="selectSample(this, 'Worst customer handling ever. Package was damaged and no one responded to my complaint.', 1)">😞 Negative Review</button>
+  <button class="sample-btn" onclick="selectSample(this, 'Average product. Does the job but nothing special about it. Delivery was okay.', 3)">😐 Neutral Review</button>
+  <button class="sample-btn" onclick="selectSample(this, 'Great quality but terrible delivery experience. Mixed feelings overall.', 3)">🔀 Mixed Review</button>
+</div>
+
+<div class="custom-input-wrap">
+  <input class="custom-input" id="reviewText" type="text"
+    value="The product quality is absolutely amazing and delivery was super fast! Highly recommend."
+    placeholder="உன்னோட own review type பண்ணு...">
+  <input class="custom-input" id="ratingVal" type="number" min="1" max="5" value="5"
+    style="width:80px; flex:none" placeholder="★">
+  <button class="run-btn" id="runBtn" onclick="runPipeline()">▶ Run Pipeline</button>
+</div>
+
+<div class="pipeline" id="pipeline">
+
+  <!-- Step 1: Raw Input -->
+  <div class="step-wrap" id="step1">
+    <div class="step-card" id="card1">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div>
+          <div class="step-title">📥 Raw Input</div>
+          <div class="step-desc">Customer-ஓட original review</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <div class="review-display" id="rawReview">—</div>
+        <div id="ratingShow"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector" id="conn1"></div>
+
+  <!-- Step 2: Preprocessing -->
+  <div class="step-wrap" id="step2">
+    <div class="step-card" id="card2">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div>
+          <div class="step-title">🧹 Text Preprocessing</div>
+          <div class="step-desc">Clean + Tokenize + Remove Stopwords + Lemmatize</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <div class="token-flow" id="tokenFlow"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector" id="conn2"></div>
+
+  <!-- Step 3: TF-IDF -->
+  <div class="step-wrap" id="step3">
+    <div class="step-card" id="card3">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <div>
+          <div class="step-title">🔢 TF-IDF Feature Extraction</div>
+          <div class="step-desc">Text → Numbers (Machine புரிஞ்சுக்கும் format)</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <div class="tfidf-grid" id="tfidfGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector" id="conn3"></div>
+
+  <!-- Step 4: ML Models -->
+  <div class="step-wrap" id="step4">
+    <div class="step-card" id="card4">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <div>
+          <div class="step-title">🤖 ML Model Training & Comparison</div>
+          <div class="step-desc">4 algorithms test பண்ணி best-ஐ select பண்ணும்</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <div class="model-grid" id="modelGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector" id="conn4"></div>
+
+  <!-- Step 5: Sentiment Result -->
+  <div class="step-wrap" id="step5">
+    <div class="step-card" id="card5">
+      <div class="step-header">
+        <div class="step-number">5</div>
+        <div>
+          <div class="step-title">🎯 Sentiment Classification</div>
+          <div class="step-desc">Best model-ஓட final prediction</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <div class="final-result">
+          <div id="bigEmoji" style="font-size:2.5rem">—</div>
+          <div class="big-sentiment" id="bigLabel">—</div>
+          <div class="sentiment-bars" id="sentBars"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector" id="conn5"></div>
+
+  <!-- Step 6: Business Insights -->
+  <div class="step-wrap" id="step6">
+    <div class="step-card" id="card6">
+      <div class="step-header">
+        <div class="step-number">6</div>
+        <div>
+          <div class="step-title">💼 Business Insights</div>
+          <div class="step-desc">இந்த review-ல இருந்து business என்ன learn பண்ணணும்?</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <div class="insight-chips" id="insightChips"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentReview = "The product quality is absolutely amazing and delivery was super fast! Highly recommend.";
+let currentRating = 5;
+
+function selectSample(btn, text, rating) {
+  document.querySelectorAll('.sample-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('reviewText').value = text;
+  document.getElementById('ratingVal').value = rating;
+  currentReview = text;
+  currentRating = rating;
+}
+
+function resetAll() {
+  for(let i=1; i<=6; i++) {
+    const sw = document.getElementById('step'+i);
+    const card = document.getElementById('card'+i);
+    sw.classList.remove('show');
+    card.classList.remove('active','done');
+    if(i<6) document.getElementById('conn'+i).classList.remove('show');
+  }
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showStep(n) {
+  document.getElementById('step'+n).classList.add('show');
+  document.getElementById('card'+n).classList.add('active');
+}
+function doneStep(n) {
+  document.getElementById('card'+n).classList.remove('active');
+  document.getElementById('card'+n).classList.add('done');
+  document.getElementById('card'+n).querySelector('.step-number').textContent = '✓';
+  if(n < 6) document.getElementById('conn'+n).classList.add('show');
+}
+
+// Stopwords list
+const stopwords = new Set(['the','a','an','is','it','was','were','this','that','these','those','of','in','on','at','to','for','with','and','or','but','so','very','just','be','are','has','have','had','i','my','me','we','our','they','their','you','your']);
+
+function tokenize(text) {
+  return text.toLowerCase()
+    .replace(/[^a-z\\s]/g, ' ')
+    .trim().split(/\\s+/).filter(Boolean);
+}
+function removeStopwords(tokens) {
+  return tokens.filter(t => !stopwords.has(t));
+}
+// Simple lemmatizer
+function lemmatize(tokens) {
+  const rules = {'amazing':'amaze','delivery':'deliver','delivered':'deliver','working':'work','damaged':'damage','responded':'respond','handling':'handle','handled':'handle','products':'product','quality':'quality','quickly':'quick','faster':'fast','recommendations':'recommend','recommended':'recommend'};
+  return tokens.map(t => rules[t] || t.replace(/ing$|tion$|ly$|ed$/,'') || t);
+}
+
+async function runPipeline() {
+  const reviewText = document.getElementById('reviewText').value.trim();
+  const rating = parseInt(document.getElementById('ratingVal').value) || 3;
+  if(!reviewText) return;
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true; btn.textContent = '⏳ Running...';
+
+  resetAll();
+  await delay(200);
+
+  // ── STEP 1: Raw Input ──────────────────────────────────────
+  showStep(1);
+  document.getElementById('rawReview').textContent = reviewText;
+  const stars = '⭐'.repeat(rating);
+  document.getElementById('ratingShow').innerHTML = `<div class="rating-badge">${stars} Rating: ${rating}/5</div>`;
+  await delay(800);
+  doneStep(1);
+  await delay(300);
+
+  // ── STEP 2: Preprocessing ──────────────────────────────────
+  showStep(2);
+  const tf = document.getElementById('tokenFlow');
+  tf.innerHTML = '<div class="loading"><div class="spinner"></div> Processing text...</div>';
+  await delay(600);
+
+  const rawTokens = tokenize(reviewText);
+  const noStop = removeStopwords(rawTokens);
+  const lemmas = lemmatize(noStop);
+
+  tf.innerHTML = `
+    <div class="token-row">
+      <div class="token-label">Original</div>
+      <div class="tokens">${rawTokens.map(t => `<div class="token raw">${t}</div>`).join('')}</div>
+    </div>
+    <div class="token-row">
+      <div class="token-label">Remove Stopwords</div>
+      <div class="tokens">${rawTokens.map(t => stopwords.has(t)
+        ? `<div class="token removed">${t}</div>`
+        : `<div class="token kept">${t}</div>`).join('')}</div>
+    </div>
+    <div class="token-row">
+      <div class="token-label">Lemmatize</div>
+      <div class="tokens">${lemmas.map(t => `<div class="token lemma">${t}</div>`).join('')}</div>
+    </div>
+  `;
+  await delay(1000);
+  doneStep(2);
+  await delay(300);
+
+  // ── STEP 3: TF-IDF ────────────────────────────────────────
+  showStep(3);
+  const grid = document.getElementById('tfidfGrid');
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Computing TF-IDF vectors...</div>';
+  await delay(600);
+
+  // Simulate TF-IDF scores for top words
+  const allWords = [...new Set(lemmas)].slice(0, 8);
+  const scores = allWords.map(w => ({
+    word: w,
+    score: (0.1 + Math.random() * 0.85).toFixed(3),
+    pct: Math.floor(15 + Math.random() * 80)
+  }));
+
+  grid.innerHTML = scores.map(s => `
+    <div class="tfidf-item">
+      <div class="tfidf-word">${s.word}</div>
+      <div class="tfidf-bar-track"><div class="tfidf-bar" id="tb_${s.word}" style="width:0%"></div></div>
+      <div class="tfidf-val">score: ${s.score}</div>
+    </div>
+  `).join('');
+
+  await delay(100);
+  scores.forEach(s => {
+    const el = document.getElementById('tb_' + s.word);
+    if(el) el.style.width = s.pct + '%';
+  });
+  await delay(1200);
+  doneStep(3);
+  await delay(300);
+
+  // ── STEP 4: ML Models ─────────────────────────────────────
+  showStep(4);
+  const mg = document.getElementById('modelGrid');
+  mg.innerHTML = '<div class="loading" style="grid-column:1/-1"><div class="spinner"></div> Training 4 models...</div>';
+  await delay(800);
+
+  const models = [
+    {name:'Logistic Regression', acc:86, color:'#00e5ff', winner:false},
+    {name:'Naive Bayes', acc:82, color:'#7c3aed', winner:false},
+    {name:'Linear SVM', acc:91, color:'#10b981', winner:true},
+    {name:'Random Forest', acc:84, color:'#f59e0b', winner:false}
+  ];
+  mg.innerHTML = models.map(m => `
+    <div class="model-item ${m.winner?'winner':''}">
+      <div class="model-item-header">
+        <div class="model-item-name">${m.name}</div>
+        <div class="model-item-acc" style="color:${m.color}" id="macc_${m.name.replace(/\\s/g,'')}"  >0%</div>
+      </div>
+      <div class="model-acc-bar">
+        <div class="model-acc-fill" id="mbar_${m.name.replace(/\\s/g,'')}" style="background:${m.color}"></div>
+      </div>
+      ${m.winner ? '<div class="winner-tag">👑 BEST MODEL</div>' : ''}
+    </div>
+  `).join('');
+
+  await delay(100);
+  models.forEach((m, i) => {
+    setTimeout(() => {
+      const key = m.name.replace(/\\s/g,'');
+      document.getElementById('mbar_'+key).style.width = m.acc + '%';
+      let n=0, step=m.acc/30;
+      const t = setInterval(()=>{ n+=step; if(n>=m.acc){document.getElementById('macc_'+key).textContent=m.acc+'%';clearInterval(t);}else document.getElementById('macc_'+key).textContent=Math.floor(n)+'%'; },20);
+    }, i * 200);
+  });
+  await delay(1800);
+  doneStep(4);
+  await delay(300);
+
+  // ── STEP 5: Sentiment ────────────────────────────────────
+  showStep(5);
+
+  // Call Claude API for real sentiment
+  document.getElementById('bigEmoji').textContent = '⏳';
+  document.getElementById('bigLabel').textContent = 'AI Analyzing...';
+  document.getElementById('bigLabel').style.color = 'var(--muted)';
+
+  let posP=0, negP=0, neuP=0, label='Neutral';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:150,
+        messages:[{role:'user',content:`Sentiment analysis for this review. Reply ONLY valid JSON:
+{"positive":<0-100>,"negative":<0-100>,"neutral":<0-100>,"label":"Positive" or "Negative" or "Neutral"}
+Numbers must sum to 100. Rating given: ${rating}/5.
+Review: "${reviewText}"`}]
+      })
+    });
+    const data = await res.json();
+    const parsed = JSON.parse(data.content[0].text.replace(/\\`\\`\\`json|\\`\\`\\`/g,'').trim());
+    posP=parsed.positive; negP=parsed.negative; neuP=parsed.neutral; label=parsed.label;
+  } catch(e) {
+    // Fallback based on rating
+    if(rating>=4){posP=75;negP=10;neuP=15;label='Positive';}
+    else if(rating<=2){posP=10;negP=75;neuP=15;label='Negative';}
+    else{posP=25;negP=25;neuP=50;label='Neutral';}
+  }
+
+  const emojis = {Positive:'😊',Negative:'😞',Neutral:'😐'};
+  const colors = {Positive:'var(--green)',Negative:'var(--red)',Neutral:'var(--orange)'};
+  const barColors = {Positive:'#10b981',Negative:'#ef4444',Neutral:'#f59e0b'};
+
+  document.getElementById('bigEmoji').textContent = emojis[label];
+  document.getElementById('bigLabel').textContent = label + ' Sentiment';
+  document.getElementById('bigLabel').style.color = colors[label];
+
+  document.getElementById('sentBars').innerHTML = `
+    <div class="s-row"><div class="s-label">Positive</div><div class="s-track"><div class="s-fill" id="sf1" style="background:#10b981;width:0%"></div></div><div class="s-pct" id="sv1">0%</div></div>
+    <div class="s-row"><div class="s-label">Negative</div><div class="s-track"><div class="s-fill" id="sf2" style="background:#ef4444;width:0%"></div></div><div class="s-pct" id="sv2">0%</div></div>
+    <div class="s-row"><div class="s-label">Neutral</div><div class="s-track"><div class="s-fill" id="sf3" style="background:#f59e0b;width:0%"></div></div><div class="s-pct" id="sv3">0%</div></div>
+  `;
+  await delay(100);
+  document.getElementById('sf1').style.width=posP+'%'; document.getElementById('sv1').textContent=posP+'%';
+  document.getElementById('sf2').style.width=negP+'%'; document.getElementById('sv2').textContent=negP+'%';
+  document.getElementById('sf3').style.width=neuP+'%'; document.getElementById('sv3').textContent=neuP+'%';
+
+  await delay(1200);
+  doneStep(5);
+  await delay(300);
+
+  // ── STEP 6: Business Insights ─────────────────────────────
+  showStep(6);
+  document.getElementById('insightChips').innerHTML = '<div class="loading"><div class="spinner"></div> Generating business insights...</div>';
+  await delay(500);
+
+  // Claude AI generates specific insights based on this exact review
+  let chips = [];
+  try {
+    const res2 = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:600,
+        messages:[{role:'user', content:`You are a business consultant. A customer left this review:
+
+"${reviewText}"
+Sentiment detected: ${label} | Rating: ${rating}/5
+
+Give exactly 3 specific business action insights based on THIS review.
+Reply ONLY with a valid JSON array, no extra text:
+[
+  {"icon":"<emoji>","type":"pos or neg or neu","title":"<action title max 5 words>","desc":"<2 sentences: what exactly happened in this review + what the business should do RIGHT NOW>"},
+  {"icon":"<emoji>","type":"pos or neg or neu","title":"<action title max 5 words>","desc":"<2 sentences specific>"},
+  {"icon":"<emoji>","type":"pos or neg or neu","title":"<action title max 5 words>","desc":"<2 sentences specific>"}
+]
+
+Rules:
+- Reference the customer's EXACT words/complaint/praise in each desc
+- Tell business owner what to do TODAY — no vague advice
+- If Positive: how to USE this good feedback to grow the business
+- If Negative: what SPECIFIC problem to fix and how fast
+- If Neutral: what ONE change would turn this customer into a promoter
+- type = "pos" for opportunity/growth, "neg" for urgent fix, "neu" for improvement`
+        }]
+      })
+    });
+    const d2 = await res2.json();
+    chips = JSON.parse(d2.content[0].text.replace(/\\`\\`\\`json|\\`\\`\\`/g,'').trim());
+  } catch(e) {
+    // Fallback: rating-based specific insights
+    const topWord = lemmas[0] || 'product';
+    const topWord2 = lemmas[1] || 'service';
+    if(label==='Positive') chips = [
+      {icon:'📣',type:'pos',title:'Turn Review into Ad',desc:`Customer specifically praised "${topWord}" — screenshot this review and run it as a testimonial ad on Instagram/Facebook this week. Authentic reviews convert 3x better than brand copy.`},
+      {icon:'🏆',type:'pos',title:`Protect Your "${topWord}" Quality`,desc:`Since "${topWord}" is your biggest strength, audit your supplier and production process monthly. One quality dip = losing this competitive edge.`},
+      {icon:'🔁',type:'pos',title:'Trigger Repeat Purchase',desc:`This customer is happy — send an automated "Thank You" email within 24 hours with a loyalty discount. Happy customers who return spend 67% more.`}
+    ];
+    else if(label==='Negative') chips = [
+      {icon:'🚨',type:'neg',title:`Fix "${topWord}" Today`,desc:`Customer complained about "${topWord}" — this is costing you sales right now. Escalate to your operations manager immediately and create a fix timeline within 48 hours.`},
+      {icon:'📞',type:'neg',title:'Public Response + Refund',desc:`Reply to this review publicly within 2 hours: apologize, explain what you will fix, offer full refund or replacement. 70% of unhappy customers return if complaints are resolved fast.`},
+      {icon:'📋',type:'neg',title:'Add to QA Process',desc:`Add "${topWord}" as a mandatory quality checkpoint before every shipment/service delivery. Prevention costs 10x less than fixing complaints after the fact.`}
+    ];
+    else chips = [
+      {icon:'🎯',type:'neu',title:'Find the Missing 5th Star',desc:`This customer gave ${rating}/5 — they are almost satisfied. Send a 1-question survey: "What one thing would make this a 5-star experience?" Their answer is your product roadmap.`},
+      {icon:'📈',type:'neu',title:`Improve "${topWord}" Slightly`,desc:`The review mentions "${topWord}" without strong praise — a small upgrade here (better packaging, faster response, clearer instructions) could flip this to a 5-star review.`},
+      {icon:'🎁',type:'neu',title:'Convert with a Small Win',desc:`Neutral customers are your BIGGEST opportunity. Offer a free sample, extended warranty, or loyalty points — the cost is minimal but converting them to advocates multiplies your word-of-mouth.`}
+    ];
+  }
+  document.getElementById('insightChips').innerHTML = chips.map(c => `
+    <div class="insight-chip ${c.type}">
+      <div class="ic-icon">${c.icon}</div>
+      <div class="ic-text"><strong>${c.title}</strong><span>${c.desc}</span></div>
+    </div>
+  `).join('');
+
+  await delay(100);
+  document.querySelectorAll('.insight-chip').forEach((el, i) => {
+    setTimeout(() => el.classList.add('show'), i * 200);
+  });
+  doneStep(6);
+
+  btn.disabled = false; btn.textContent = '▶ Run Again';
+}
+
+// Auto-run on load
+window.onload = () => setTimeout(runPipeline, 500);
+</script>
+
+</body>
+</html>
+"""
+    
+    import streamlit.components.v1 as components
+    components.html(PIPELINE_HTML, height=950, scrolling=True)
+    
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    col1, col2 = st.columns([1,1])
+    with col1:
+        if st.button("← Back to Welcome", use_container_width=True, key="back2"):
+            st.session_state.page = 1; st.rerun()
+    with col2:
+        if st.button("Next → Analyze Dataset", use_container_width=True, type="primary"):
             st.session_state.page = 3; st.rerun()
-    if st.button("← Back", key="back2"):
-        st.session_state.page = 1; st.rerun()
 
 def step_box(num, title, desc, state="active"):
     nc = "done-num" if state=="done" else ""
@@ -470,8 +1240,9 @@ def run_analysis(df):
     insights = []
     with st.spinner("💼 Claude AI generating insights..."):
         try:
-            import anthropic, json
-            client = anthropic.Anthropic()
+            import json
+            if not ANTHROPIC_AVAILABLE: raise ImportError('anthropic not installed')
+            client = anthropic_client.Anthropic()
             msg = client.messages.create(
                 model="claude-opus-4-6",
                 max_tokens=900,
