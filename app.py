@@ -96,7 +96,7 @@ def nav_bar(cur):
         cls = "active" if pg==cur else ("done" if pg<cur else "")
         lbl = ("✓ "+s) if pg<cur else s
         html += f'<div class="nav-step {cls}">{lbl}</div>'
-    st.markdown(f'''<div class="nav-bar"><div class="nav-logo">Review<span>Mind</span></div><div class="nav-steps">{html}</div></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div class="nav-bar"><div class="nav-logo">Review<span>Analysis</span></div><div class="nav-steps">{html}</div></div>''', unsafe_allow_html=True)
 
 # ══════════════════════════════════
 # PAGE 1 — WELCOME
@@ -481,7 +481,7 @@ nav{position:fixed;top:0;width:100%;z-index:100;padding:18px 60px;display:flex;a
 .nav-step.done span{background:rgba(16,185,129,.2);}
 </style>
 <nav>
-  <div class="logo">Review<span>Mind</span></div>
+  <div class="logo">Review<span>Analysis</span></div>
   <div class="nav-steps">
     <a class="nav-step done" href="#"><span>✓</span> Welcome</a>
     <div class="nav-step active"><span>2</span> How It Works</div>
