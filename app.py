@@ -170,7 +170,7 @@ body {
   color: var(--text);
   font-family: 'Cabinet Grotesk', sans-serif;
   min-height: 100vh;
-  padding: 10px 20px 30px;
+  padding: 100px 20px 80px;
 }
 
 h1 {
@@ -469,9 +469,28 @@ h1 {
 </style>
 </head>
 <body>
+<style>
+nav{position:fixed;top:0;width:100%;z-index:100;padding:18px 60px;display:flex;align-items:center;justify-content:space-between;background:rgba(7,9,15,.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(28,37,64,.6);}
+.logo{font-family:"Clash Display",sans-serif;font-size:1.3rem;font-weight:700;color:#00e5ff;letter-spacing:-.5px;}
+.logo span{color:#dde4f5;}
+.nav-steps{display:flex;gap:6px;}
+.nav-step{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:100px;font-size:.78rem;font-weight:600;letter-spacing:.3px;border:1px solid #1c2540;color:#3d4d70;cursor:pointer;transition:all .2s;text-decoration:none;}
+.nav-step.active{background:rgba(0,229,255,.1);border-color:rgba(0,229,255,.4);color:#00e5ff;}
+.nav-step.done{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.3);color:#10b981;}
+.nav-step span{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;background:rgba(0,229,255,.15);}
+.nav-step.done span{background:rgba(16,185,129,.2);}
+</style>
+<nav>
+  <div class="logo">Review<span>Mind</span></div>
+  <div class="nav-steps">
+    <a class="nav-step done" href="#"><span>✓</span> Welcome</a>
+    <div class="nav-step active"><span>2</span> How It Works</div>
+    <a class="nav-step" href="#"><span>3</span> Analyze</a>
+  </div>
+</nav>
 
 <h1>How <span class="title-accent">ReviewMind</span> Works</h1>
-<p class="subtitle">ஒரு Review எடுத்து — Step by Step என்ன நடக்குதுன்னு பாரு 👇</p>
+<p class="subtitle">Watch each step as your review flows through the ML pipeline 👇</p>
 
 <!-- Sample Buttons -->
 <div class="sample-row">
@@ -484,7 +503,7 @@ h1 {
 <div class="custom-input-wrap">
   <input class="custom-input" id="reviewText" type="text"
     value="The product quality is absolutely amazing and delivery was super fast! Highly recommend."
-    placeholder="உன்னோட own review type பண்ணு...">
+    placeholder="Type your own review here...">
   <input class="custom-input" id="ratingVal" type="number" min="1" max="5" value="5"
     style="width:80px; flex:none" placeholder="★">
   <button class="run-btn" id="runBtn" onclick="runPipeline()">▶ Run Pipeline</button>
@@ -499,7 +518,7 @@ h1 {
         <div class="step-number">1</div>
         <div>
           <div class="step-title">📥 Raw Input</div>
-          <div class="step-desc">Customer-ஓட original review</div>
+          <div class="step-desc">Customer-'s original review</div>
         </div>
       </div>
       <div class="step-body">
@@ -536,7 +555,7 @@ h1 {
         <div class="step-number">3</div>
         <div>
           <div class="step-title">🔢 TF-IDF Feature Extraction</div>
-          <div class="step-desc">Text → Numbers (Machine புரிஞ்சுக்கும் format)</div>
+          <div class="step-desc">Text → Numbers (Machine machine-readable format)</div>
         </div>
       </div>
       <div class="step-body">
@@ -554,7 +573,7 @@ h1 {
         <div class="step-number">4</div>
         <div>
           <div class="step-title">🤖 ML Model Training & Comparison</div>
-          <div class="step-desc">4 algorithms test பண்ணி best-ஐ select பண்ணும்</div>
+          <div class="step-desc">4 algorithms test — best model selected automatically</div>
         </div>
       </div>
       <div class="step-body">
@@ -572,7 +591,7 @@ h1 {
         <div class="step-number">5</div>
         <div>
           <div class="step-title">🎯 Sentiment Classification</div>
-          <div class="step-desc">Best model-ஓட final prediction</div>
+          <div class="step-desc">Best model-'s final prediction</div>
         </div>
       </div>
       <div class="step-body">
@@ -594,7 +613,7 @@ h1 {
         <div class="step-number">6</div>
         <div>
           <div class="step-title">💼 Business Insights</div>
-          <div class="step-desc">இந்த review-ல இருந்து business என்ன learn பண்ணணும்?</div>
+          <div class="step-desc">What should the business do based on this review?</div>
         </div>
       </div>
       <div class="step-body">
@@ -910,6 +929,12 @@ Rules:
 window.onload = () => setTimeout(runPipeline, 500);
 </script>
 
+<div style="text-align:center;padding:20px 40px 60px;position:relative;z-index:1;">
+  <button onclick="location.href='page3.html'" style="background:#00e5ff;color:#07090f;border:none;border-radius:14px;padding:16px 44px;font-family:'Cabinet Grotesk',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 0 40px rgba(0,229,255,.25);display:inline-flex;align-items:center;gap:10px;transition:all .25s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+    Try with Your Dataset →
+  </button>
+  <p style="color:#3d4d70;font-size:.85rem;margin-top:14px;">Next: Upload a CSV and get full analysis</p>
+</div>
 </body>
 </html>
 """
@@ -1062,7 +1087,7 @@ def run_pipeline(review, rating):
 # ══════════════════════════════════
 def page_analyze():
     nav_bar(3)
-    st.markdown('<div class="sec-tag">Dataset Analysis</div><div class="sec-heading" style="font-size:1.4rem">📊 Analyze Your Dataset</div><p style="color:#3d4d70;font-size:.88rem;margin-bottom:20px">CSV upload பண்ணு → ML + AI உன் reviews analyze பண்ணி business insights தரும்</p>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-tag">Dataset Analysis</div><div class="sec-heading" style="font-size:1.4rem">📊 Analyze Your Dataset</div><p style="color:#3d4d70;font-size:.88rem;margin-bottom:20px">Upload a CSV → ML + AI analyzes your reviews and generates business insights</p>', unsafe_allow_html=True)
 
     st.markdown('''<div class="upload-hint">
         <b style="color:#dde4f5">CSV Format Required:</b><br>
@@ -1202,7 +1227,7 @@ def run_analysis(df):
     summary = f"Total:{total}. Positive:{len(pos_df)}({pos_pct}%). Negative:{len(neg_df)}({neg_pct}%). Neutral:{len(neu_df)}. AvgRating:{avg_r:.2f}/5. Top positive words:{pos_kw}. Top negative words:{neg_kw}. Sample negatives:{'.'.join(neg_df['review'].head(2).tolist())}. Sample positives:{'.'.join(pos_df['review'].head(2).tolist())}"
 
     insights = []
-    with st.spinner("💼 Claude AI generating insights..."):
+    with st.spinner("💼 Generating business insights..."):
         try:
             import json
             if not ANTHROPIC_AVAILABLE: raise ImportError('anthropic not installed')
