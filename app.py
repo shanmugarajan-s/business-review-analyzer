@@ -5,13 +5,7 @@ import re
 import time
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.svm import LinearSVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+# ML imports kept for pipeline demo reference
 import warnings
 warnings.filterwarnings("ignore")
 try:
@@ -1196,36 +1190,6 @@ def run_analysis(df):
 
     st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
-    # ML Models
-    st.markdown('<div class="sec-tag">ML Performance</div><div class="sec-heading">Model Accuracy Comparison</div>', unsafe_allow_html=True)
-    results = {}
-    mdl_df = df[df["sentiment"]!="Neutral"].copy()
-    mdl_df["label"] = (mdl_df["sentiment"]=="Positive").astype(int)
-    if len(mdl_df)>=10 and len(mdl_df["label"].unique())==2:
-        try:
-            tfidf = TfidfVectorizer(max_features=3000,stop_words="english")
-            X = tfidf.fit_transform(mdl_df["cleaned"])
-            y = mdl_df["label"]
-            X_tr,X_te,y_tr,y_te = train_test_split(X,y,test_size=0.2,random_state=42,stratify=y)
-            for nm,mdl in [("Logistic Regression",LogisticRegression(max_iter=1000)),("Naive Bayes",MultinomialNB()),("Linear SVM",LinearSVC(max_iter=2000)),("Random Forest",RandomForestClassifier(n_estimators=50,random_state=42))]:
-                mdl.fit(X_tr,y_tr); results[nm]=round(accuracy_score(y_te,mdl.predict(X_te))*100,1)
-        except: results={"Logistic Regression":86.0,"Naive Bayes":82.0,"Linear SVM":91.0,"Random Forest":84.0}
-    else: results={"Logistic Regression":86.0,"Naive Bayes":82.0,"Linear SVM":91.0,"Random Forest":84.0}
-
-    best = max(results,key=results.get)
-    mclrs = {"Logistic Regression":"#00e5ff","Naive Bayes":"#7c3aed","Linear SVM":"#10b981","Random Forest":"#f59e0b"}
-    fig,ax = dark_fig((8,3))
-    ns,vs = list(results.keys()),list(results.values())
-    bars = ax.bar(ns,vs,color=[mclrs[n] for n in ns],width=0.42,edgecolor="none")
-    for b,v,n in zip(bars,vs,ns):
-        lbl = f"{v}% 👑" if n==best else f"{v}%"
-        ax.text(b.get_x()+b.get_width()/2,b.get_height()+0.4,lbl,ha="center",va="bottom",color="#dde4f5",fontsize=10,fontweight="bold")
-    ax.set_ylim(0,110); ax.set_ylabel("Accuracy (%)",color="#3d4d70"); plt.xticks(rotation=10,ha="right"); plt.tight_layout()
-    st.pyplot(fig); plt.close()
-    st.markdown(f'<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:12px;padding:12px 18px;margin-top:8px;color:#10b981;font-weight:600;font-size:.88rem">🏆 Best Model: {best} — {results[best]}% Accuracy</div>', unsafe_allow_html=True)
-
-    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-
     # Business Insights
     st.markdown('<div class="sec-tag">Business Intelligence</div><div class="sec-heading">What Your Business Should Do Now</div>', unsafe_allow_html=True)
 
@@ -1282,6 +1246,12 @@ Rules: reference specific numbers/keywords from data, tell owner EXACTLY what to
 # ══════════════════════════════════
 # ROUTER
 # ══════════════════════════════════
-if st.session_state.page == 1: page_welcome()
-elif st.session_state.page == 2: page_pipeline()
-elif st.session_state.page == 3: page_analyze()
+if st.session_state.page == 1:
+    page_welcome()
+    st.stop()
+elif st.session_state.page == 2:
+    page_pipeline()
+    st.stop()
+elif st.session_state.page == 3:
+    page_analyze()
+    st.stop()
