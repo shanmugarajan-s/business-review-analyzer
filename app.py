@@ -14,7 +14,7 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
-st.set_page_config(page_title="ReviewMind", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="error-404", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -489,8 +489,8 @@ nav{position:fixed;top:0;width:100%;z-index:100;padding:18px 60px;display:flex;a
   </div>
 </nav>
 
-<h1>How <span class="title-accent">ReviewMind</span> Works</h1>
-<p class="subtitle">Watch each step as your review flows through the ML pipeline 👇</p>
+<h1>How <span class="title-accent">Review</span> Works</h1>
+<p class="subtitle"> 👇</p>
 
 <!-- Sample Buttons -->
 <div class="sample-row">
