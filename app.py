@@ -124,7 +124,7 @@ def page_welcome():
     with c2:
         st.markdown('<div class="metric-card"><span class="metric-num" style="color:#00e5ff">91%</span><span class="metric-lbl">Best Accuracy</span></div>', unsafe_allow_html=True)
     with c3:
-        st.markdown('<div class="metric-card"><span class="metric-num" style="color:#7c3aed">AI</span><span class="metric-lbl">Powered Insights</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><span class="metric-num" style="color:#7c3aed">S</span><span class="metric-lbl">Powered Insights</span></div>', unsafe_allow_html=True)
 
     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
     _,col,_ = st.columns([1,2,1])
@@ -1268,9 +1268,7 @@ Rules: reference specific numbers/keywords from data, tell owner EXACTLY what to
     csv_out = df[["review","rating","sentiment"]].to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Results CSV", csv_out, "analyzed_reviews.csv", "text/csv", use_container_width=True)
 
-# ══════════════════════════════════
-# ROUTER
-# ══════════════════════════════════
+
 if st.session_state.page == 1:
     page_welcome()
     st.stop()
