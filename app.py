@@ -566,23 +566,6 @@ nav{position:fixed;top:0;width:100%;z-index:100;padding:18px 60px;display:flex;a
 
   <div class="connector" id="conn3"></div>
 
-  <!-- Step 4: ML Models -->
-  <div class="step-wrap" id="step4">
-    <div class="step-card" id="card4">
-      <div class="step-header">
-        <div class="step-number">4</div>
-        <div>
-          <div class="step-title">🤖 ML Model Training & Comparison</div>
-          <div class="step-desc">4 algorithms test — best model selected automatically</div>
-        </div>
-      </div>
-      <div class="step-body">
-        <div class="model-grid" id="modelGrid"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="connector" id="conn4"></div>
 
   <!-- Step 5: Sentiment Result -->
   <div class="step-wrap" id="step5">
