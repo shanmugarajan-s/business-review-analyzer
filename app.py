@@ -14,7 +14,7 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
-st.set_page_config(page_title="error-404", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Error-404", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -96,7 +96,7 @@ def nav_bar(cur):
         cls = "active" if pg==cur else ("done" if pg<cur else "")
         lbl = ("✓ "+s) if pg<cur else s
         html += f'<div class="nav-step {cls}">{lbl}</div>'
-    st.markdown(f'''<div class="nav-bar"><div class="nav-logo">Review<span>Analysis</span></div><div class="nav-steps">{html}</div></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div class="nav-bar"><div class="nav-logo">Review<span>Mind</span></div><div class="nav-steps">{html}</div></div>''', unsafe_allow_html=True)
 
 # ══════════════════════════════════
 # PAGE 1 — WELCOME
@@ -124,7 +124,7 @@ def page_welcome():
     with c2:
         st.markdown('<div class="metric-card"><span class="metric-num" style="color:#00e5ff">91%</span><span class="metric-lbl">Best Accuracy</span></div>', unsafe_allow_html=True)
     with c3:
-        st.markdown('<div class="metric-card"><span class="metric-num" style="color:#7c3aed">S</span><span class="metric-lbl">Powered Insights</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><span class="metric-num" style="color:#7c3aed">SSSS</span><span class="metric-lbl">Powered Insights</span></div>', unsafe_allow_html=True)
 
     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
     _,col,_ = st.columns([1,2,1])
@@ -481,7 +481,7 @@ nav{position:fixed;top:0;width:100%;z-index:100;padding:18px 60px;display:flex;a
 .nav-step.done span{background:rgba(16,185,129,.2);}
 </style>
 <nav>
-  <div class="logo">Review<span>Analysis</span></div>
+  <div class="logo">Review<span>Mind</span></div>
   <div class="nav-steps">
     <a class="nav-step done" href="#"><span>✓</span> Welcome</a>
     <div class="nav-step active"><span>2</span> How It Works</div>
@@ -489,8 +489,8 @@ nav{position:fixed;top:0;width:100%;z-index:100;padding:18px 60px;display:flex;a
   </div>
 </nav>
 
-<h1>How <span class="title-accent">Review</span> Works</h1>
-<p class="subtitle"> 👇</p>
+<h1>How <span class="title-accent">ReviewMind</span> Works</h1>
+<p class="subtitle">Watch each step as your review flows through the ML pipeline 👇</p>
 
 <!-- Sample Buttons -->
 <div class="sample-row">
@@ -566,6 +566,23 @@ nav{position:fixed;top:0;width:100%;z-index:100;padding:18px 60px;display:flex;a
 
   <div class="connector" id="conn3"></div>
 
+  <!-- Step 4: ML Models -->
+  <div class="step-wrap" id="step4">
+    <div class="step-card" id="card4">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <div>
+          <div class="step-title">🤖 ML Model Training & Comparison</div>
+          <div class="step-desc">4 algorithms test — best model selected automatically</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <div class="model-grid" id="modelGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector" id="conn4"></div>
 
   <!-- Step 5: Sentiment Result -->
   <div class="step-wrap" id="step5">
@@ -1251,7 +1268,9 @@ Rules: reference specific numbers/keywords from data, tell owner EXACTLY what to
     csv_out = df[["review","rating","sentiment"]].to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Results CSV", csv_out, "analyzed_reviews.csv", "text/csv", use_container_width=True)
 
-
+# ══════════════════════════════════
+# ROUTER
+# ══════════════════════════════════
 if st.session_state.page == 1:
     page_welcome()
     st.stop()
